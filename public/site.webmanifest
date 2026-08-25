@@ -1,0 +1,18 @@
+{
+  "name": "TUNAS",
+  "short_name": "TUNAS",
+  "description": "AI-assisted shallot harvest planning for Indonesian farmers.",
+  "lang": "en",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F7F5EE",
+  "theme_color": "#1D4428",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -10,7 +10,26 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+tmp
 *.local
+*.tsbuildinfo
+
+# Environment files (keep the shareable template)
+.env
+.env.*
+!.env.example
+
+# Local agent state and test/tool output
+/.agents/
+coverage/
+.vite/
+
+# Local-only product reference
+product-blueprint.md
+
+# Local-only documentation and OpenCode agents
+/docs/
+/.opencode/
 
 # Editor directories and files
 .vscode/*
