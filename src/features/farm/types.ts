@@ -11,6 +11,14 @@ export type FarmBlock = {
   sourceLabel: string;
 };
 
+export type LinkedFarmMission = {
+  id: string;
+  title: string;
+  statusLabel: string;
+  statusTone: "success" | "warning" | "info" | "ai";
+  href: string;
+};
+
 export type FarmBlockDraft = {
   name: string;
   location: string;
@@ -32,6 +40,7 @@ export type CropBatch = {
   statusLabel: string;
   notes: string;
   sourceLabel: string;
+  mission?: LinkedFarmMission;
 };
 
 export type CropBatchDraft = {
@@ -77,4 +86,10 @@ export type FieldsPageData = {
   batches: CropBatch[];
   observations: FarmObservation[];
   commitments: BuyerCommitment[];
+  assistant: {
+    contextLabel: string;
+    starterMessage: string;
+    responses: Array<{ id: string; keywords: string[]; text: string }>;
+    fallbackResponse: string;
+  };
 };

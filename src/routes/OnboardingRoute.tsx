@@ -14,7 +14,7 @@ export function OnboardingRoute() {
       session={session}
       onComplete={() => {
         if (!saveSession({ ...session, hasFarm: true, sourceLabel: "Backend onboarding" })) return false;
-        navigate("/farm");
+        navigate("/today");
         return true;
       }}
     />

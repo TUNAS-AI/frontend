@@ -72,7 +72,7 @@ export function FieldsView({ data }: { data: FieldsPageData }) {
       sourceLabel: "Added in this demo session",
     };
     setBatches((current) => [...current, batch]);
-    setNotice(`${batch.crop} batch ${batch.batchLabel} was attached to ${blocks.find((block) => block.id === blockId)?.name ?? "this field"} locally.`);
+    setNotice(`${batch.crop} batch ${batch.batchLabel} was attached to ${blocks.find((block) => block.id === blockId)?.name ?? "this field"} locally. It is not yet part of a mission.`);
   }
 
   return (

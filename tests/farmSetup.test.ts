@@ -17,7 +17,7 @@ test("Fields references only configured field blocks", () => {
   assert.ok(DEMO_FARM_DATA.commitments.every((commitment) => !commitment.batchId || batchIds.has(commitment.batchId)));
 });
 
-test("Field blocks expose clearly labeled shallot farm fixtures without labour assumptions", () => {
+test("Field blocks expose core mission context without labour assumptions", () => {
   assert.equal(DEMO_FARM_DATA.title, "Field blocks");
   assert.ok(DEMO_FARM_DATA.blocks.length > 0);
   assert.ok(DEMO_FARM_DATA.batches.length > 0);
@@ -26,6 +26,5 @@ test("Field blocks expose clearly labeled shallot farm fixtures without labour a
   assert.equal(JSON.stringify(DEMO_FARM_DATA).toLowerCase().includes("worker"), false);
   assert.equal(JSON.stringify(DEMO_FARM_DATA).toLowerCase().includes("labour"), false);
   assert.ok(DEMO_FARM_DATA.batches.every((batch) => batch.crop === "Shallot"));
-  assert.match(DEMO_FARM_DATA.sourceLabel, /placeholder/i);
-  assert.ok(DEMO_FARM_DATA.blocks.every((block) => /placeholder/i.test(block.sourceLabel)));
+  assert.ok(DEMO_FARM_DATA.batches.filter((batch) => batch.mission).every((batch) => batch.mission?.href.startsWith("/missions/")));
 });

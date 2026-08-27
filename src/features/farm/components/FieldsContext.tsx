@@ -21,7 +21,7 @@ export function FieldsContext({ data }: { data: FieldsPageData }) {
         </dl>
         <div className="flex gap-3 border-t pt-5">
           <Layers3 className="mt-0.5 h-5 w-5 shrink-0 text-forest-600" aria-hidden="true" />
-          <div><p className="font-bold">Farm context</p><p className="mt-1 text-sm leading-6 text-muted-foreground">Field, crop, observation, and buyer records stay grouped by farm block.</p></div>
+          <div><p className="font-bold">Mission context</p><p className="mt-1 text-sm leading-6 text-muted-foreground">Missions retrieve only the field records relevant to their goal.</p></div>
         </div>
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground"><Database className="h-4 w-4" aria-hidden="true" />{data.sourceLabel}</div>
         <Badge variant="source">Local demo edits are not persisted</Badge>

@@ -34,7 +34,7 @@ test("routes verified users without a farm to onboarding", async () => {
   ]);
 });
 
-test("routes verified users with a farm to Farm fields", async () => {
+test("routes verified users with a farm to Today", async () => {
   const session = await completeGoogleCallback("#access_token=token-1&expires_in=3600", async (path) => {
     if (path === "/api/session") {
       return new Response(JSON.stringify({ userId: "user-1", email: null, displayName: null }), { status: 200 });
@@ -43,7 +43,7 @@ test("routes verified users with a farm to Farm fields", async () => {
   });
 
   assert.equal(session.hasFarm, true);
-  assert.equal(getPostAuthenticationPath(session), "/farm");
+  assert.equal(getPostAuthenticationPath(session), "/today");
 });
 
 test("refreshes a stored session from the backend before protecting routes", async () => {

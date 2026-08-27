@@ -5,7 +5,7 @@
 export const FARM_FIXTURE_SOURCE: unknown = {
   sourceLabel: "Placeholder farm data",
   title: "Field blocks",
-  description: "Open a field block to review its shallot batches, farmer-reported readiness, observations, and buyer commitments.",
+  description: "Open a field block to review its shallot batches, farmer-reported readiness, observations, buyer commitments, and linked harvest mission.",
   freshness: "Updated 14 July 2026 at 08:15 WIB - Placeholder data",
   farm: {
     name: "Sari Tani Farm",
@@ -64,6 +64,13 @@ export const FARM_FIXTURE_SOURCE: unknown = {
       statusLabel: "Active",
       notes: "Inspect drainage again before moving the harvest team into the block.",
       sourceLabel: "Placeholder crop batch",
+      mission: {
+        id: "mission-drainage-recovery",
+        title: "Stabilize North Block drainage before harvest",
+        statusLabel: "Active",
+        statusTone: "ai",
+        href: "/missions/mission-drainage-recovery",
+      },
     },
     {
       id: "batch-eb-sh-27",
@@ -88,7 +95,7 @@ export const FARM_FIXTURE_SOURCE: unknown = {
       stage: "Early growth",
       readinessLabel: "Farmer reported: not ready",
       statusLabel: "Active",
-      notes: "Keep as farm context only; this batch is still in early growth.",
+      notes: "Keep as farm context only; it is not eligible for a harvest mission.",
       sourceLabel: "Placeholder crop batch",
     },
   ],
@@ -123,8 +130,19 @@ export const FARM_FIXTURE_SOURCE: unknown = {
       marketQuality: "Market quality A",
       dueAt: "2026-07-18T14:00:00+07:00",
       dueLabel: "18 July - 14:00 WIB",
-      statusLabel: "Open commitment",
+      statusLabel: "Mission not yet approved",
       statusTone: "warning",
     },
   ],
+  assistant: {
+    contextLabel: "Farm fields loaded",
+    starterMessage: "Ask about field blocks, shallot batches, farmer-reported readiness, observations, or buyer commitments for this placeholder farm.",
+    responses: [
+      { id: "blocks", keywords: ["block", "field", "area"], text: "This placeholder farm has three shallot field blocks. North Block needs a drainage recheck, East Block is almost ready according to the farmer, and South Raised Beds is in early growth." },
+      { id: "batches", keywords: ["batch", "crop", "plant", "shallot"], text: "North Block batch NB-SH-26 is farmer-reported ready, East Block batch EB-SH-27 is almost ready, and South Raised Beds batch SB-SH-28 is not ready. Readiness remains farmer-reported." },
+      { id: "observation", keywords: ["observation", "water", "condition"], text: "The newest placeholder observation reports standing water in North Block. Recheck it before the approved harvest plan is changed." },
+      { id: "buyer", keywords: ["buyer", "commitment", "500", "quality"], text: "The open buyer commitment requests 500 kg of market-quality A shallots from East Block by 18 July at 14:00 WIB. A mission still requires farmer approval." },
+    ],
+    fallbackResponse: "This farm contains three field blocks, three shallot batches, two observations, and one buyer commitment. Missions use only the records relevant to their goal; none of this demo data is connected to a backend.",
+  },
 };

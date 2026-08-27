@@ -13,7 +13,7 @@ export function AppIdentityPanel({ profile }: { profile: UserProfile }) {
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-white/15 bg-white/10 shadow-inner"><Sprout className="h-5 w-5" aria-hidden="true" /></span>
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/70">TUNAS</p>
-            <p className="mt-0.5 text-sm font-semibold leading-5 text-white/90">Farm setup and field records</p>
+            <p className="mt-0.5 text-sm font-semibold leading-5 text-white/90">Mission planning and control</p>
           </div>
         </div>
       </div>

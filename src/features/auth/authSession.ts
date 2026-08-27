@@ -175,5 +175,5 @@ export async function refreshGoogleAuthSession(session: AuthSession, request: Au
 }
 
 export function getPostAuthenticationPath(session: Pick<AuthSession, "hasFarm">) {
-  return session.hasFarm ? "/farm" : "/onboarding";
+  return session.hasFarm ? "/today" : "/onboarding";
 }

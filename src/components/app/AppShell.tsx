@@ -30,6 +30,7 @@ export type AppNavigationItem<Id extends string = string> = {
 
 type AppShellProps<Id extends string> = {
   activeItem: Id;
+  assistant?: ReactNode;
   children: ReactNode;
   context?: ReactNode;
   contextLabel?: string;
@@ -41,9 +42,10 @@ type AppShellProps<Id extends string> = {
 
 export function AppShell<Id extends string>({
   activeItem,
+  assistant,
   children,
   context,
-  contextLabel = "Farm context",
+  contextLabel = "Mission context",
   mobileHeaderAction,
   navigationItems,
   onNavigate,
@@ -130,6 +132,7 @@ export function AppShell<Id extends string>({
         onSignOut={onSignOut}
         onResetOnboarding={() => setResetOpen(true)}
       />
+      {assistant}
       </div>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -215,7 +218,7 @@ export function DesktopNavigation<Id extends string>({
         className="flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-xs font-bold text-destructive transition-colors hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:ring-offset-2"
       >
         <RotateCcw className="h-4 w-4" aria-hidden="true" />
-        Reset onboarding
+        Reset onboarding <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Demo</span>
       </button>
     </nav>
   );
@@ -291,7 +294,7 @@ export function MobileNavigation<Id extends string>({
           className="flex min-h-10 w-full items-center justify-center gap-2 rounded-md text-[11px] font-bold text-destructive transition-colors hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-ring/30"
         >
           <RotateCcw className="h-4 w-4" aria-hidden="true" />
-          Reset onboarding
+          Reset onboarding <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Demo</span>
         </button>
       </div>
     </nav>
@@ -306,7 +309,7 @@ function BrandInline() {
       </div>
       <div>
         <p className="text-lg font-bold leading-tight text-foreground">TUNAS</p>
-        <p className="text-sm font-semibold text-muted-foreground">Farm setup and field records</p>
+        <p className="text-sm font-semibold text-muted-foreground">Mission planning and control</p>
       </div>
     </div>
   );

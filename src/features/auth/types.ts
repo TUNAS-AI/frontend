@@ -30,6 +30,8 @@ export type OnboardingPageCopy = {
   description: string;
   farmStepTitle: string;
   fieldsAndCropsStepTitle: string;
-  reviewStepTitle: string;
+  calendarStepTitle: string;
   finishLabel: string;
+  calendarHeldLabel: string;
+  calendarHeldBody: string;
 };

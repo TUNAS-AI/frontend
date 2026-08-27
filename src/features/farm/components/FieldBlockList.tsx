@@ -17,7 +17,7 @@ export function FieldBlockList({ batches, blocks, onAddField, onSelectBlock }: F
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-forest-700">Farm map</p>
           <h2 id="field-blocks-heading" className="mt-1 text-2xl font-extrabold tracking-tight">Field blocks</h2>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Open a block for its crop batches and farmer-reported field context.</p>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Open a block for its crop batches, farmer-reported field context, and any mission already linked to a batch.</p>
         </div>
         <Button type="button" icon={<Plus aria-hidden="true" />} onClick={onAddField}>Add field block</Button>
       </div>
@@ -26,6 +26,7 @@ export function FieldBlockList({ batches, blocks, onAddField, onSelectBlock }: F
         <ul className="grid gap-3">
           {blocks.map((block) => {
             const blockBatches = batches.filter((batch) => batch.blockId === block.id);
+            const missionCount = blockBatches.filter((batch) => batch.mission).length;
             return (
               <li key={block.id}>
                 <button
@@ -44,7 +45,7 @@ export function FieldBlockList({ batches, blocks, onAddField, onSelectBlock }: F
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground">Crop batches</p>
                       <p className="mt-1 flex items-center gap-1.5 font-bold text-foreground"><Sprout className="h-4 w-4 text-leaf-700" aria-hidden="true" />{blockBatches.length} tracked</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Local farm records</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{missionCount ? `${missionCount} linked mission${missionCount === 1 ? "" : "s"}` : "No linked mission"}</p>
                     </div>
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-forest-50 text-forest-700 transition-colors group-hover:bg-forest-700 group-hover:text-white"><ArrowRight className="h-5 w-5" aria-hidden="true" /></span>
                   </div>

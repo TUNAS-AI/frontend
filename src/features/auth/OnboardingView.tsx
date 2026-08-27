@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, Plus, Sprout, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarClock, MapPinned, Plus, Sprout, Trash2 } from "lucide-react";
 import { submitOnboarding } from "@/api/onboarding";
 import { Button } from "@/components/ui/Button";
 import { FieldGroup, Select } from "@/components/ui/FieldControl";
@@ -20,7 +20,7 @@ import {
 } from "./onboarding";
 import type { AuthSession, OnboardingPageCopy } from "./types";
 
-type OnboardingStep = "farm" | "fields-and-crops" | "review";
+type OnboardingStep = "farm" | "fields-and-crops" | "calendar";
 
 type OnboardingViewProps = {
   copy: OnboardingPageCopy;
@@ -31,7 +31,7 @@ type OnboardingViewProps = {
 const steps: ReadonlyArray<{ id: OnboardingStep; label: string }> = [
   { id: "farm", label: "Farm" },
   { id: "fields-and-crops", label: "Fields & crops" },
-  { id: "review", label: "Review" },
+  { id: "calendar", label: "Google Calendar" },
 ];
 
 const initialFarm: FarmDraft = {
@@ -81,7 +81,7 @@ export function OnboardingView({ copy, session, onComplete }: OnboardingViewProp
       }
       if (step === "fields-and-crops") {
         validateFieldDrafts(fields);
-        setStep("review");
+        setStep("calendar");
         return;
       }
       setBusy(true);
@@ -100,7 +100,7 @@ export function OnboardingView({ copy, session, onComplete }: OnboardingViewProp
 
   function back() {
     setError(null);
-    if (step === "review") setStep("fields-and-crops");
+    if (step === "calendar") setStep("fields-and-crops");
     if (step === "fields-and-crops") setStep("farm");
   }
 
@@ -131,15 +131,15 @@ export function OnboardingView({ copy, session, onComplete }: OnboardingViewProp
         <section className="rounded-xl border bg-card px-5 py-6 shadow-farm sm:px-7" aria-labelledby="onboarding-heading">
           <div className="border-b pb-5">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-forest-700">Step {stepIndex + 1} of {steps.length}</p>
-            <h1 id="onboarding-heading" className="mt-2 text-2xl font-extrabold tracking-tight">{step === "farm" ? copy.farmStepTitle : step === "fields-and-crops" ? copy.fieldsAndCropsStepTitle : copy.reviewStepTitle}</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{step === "farm" ? copy.description : step === "fields-and-crops" ? "Each crop batch belongs to a field block. Add the field and its shallot batches together." : "Confirm the farm, fields, and shallot batches before saving them to your account."}</p>
+            <h1 id="onboarding-heading" className="mt-2 text-2xl font-extrabold tracking-tight">{step === "farm" ? copy.farmStepTitle : step === "fields-and-crops" ? copy.fieldsAndCropsStepTitle : copy.calendarStepTitle}</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{step === "farm" ? copy.description : step === "fields-and-crops" ? "Each crop batch belongs to a field block. Add the field and its shallot batches together." : "Calendar connection is optional and is not available yet."}</p>
           </div>
 
           <form className="mt-5" onSubmit={next}>
             <div className="grid gap-5">
               {step === "farm" ? <FarmStep farm={farm} onFarmChange={updateFarm} onAddWindow={addWorkWindow} /> : null}
               {step === "fields-and-crops" ? <FieldsAndCropsStep fields={fields} onFieldsChange={setFields} onFieldChange={updateField} /> : null}
-              {step === "review" ? <ReviewStep farm={farm} fields={fields} /> : null}
+              {step === "calendar" ? <CalendarStep copy={copy} /> : null}
               {error ? <ErrorLine message={error} /> : null}
             </div>
 
@@ -148,7 +148,7 @@ export function OnboardingView({ copy, session, onComplete }: OnboardingViewProp
                 <Button type="button" variant="outline" icon={<ArrowLeft aria-hidden="true" />} disabled={stepIndex === 0 || busy} onClick={back}>Back</Button>
                 <Button type="button" variant="outline" disabled={busy} onClick={fillDemoData}>Fill demo data</Button>
               </div>
-              <Button type="submit" trailingIcon={step === "review" ? undefined : <ArrowRight aria-hidden="true" />} isLoading={busy} loadingLabel="Saving farm setup">{step === "review" ? copy.finishLabel : "Next"}</Button>
+              <Button type="submit" trailingIcon={step === "calendar" ? undefined : <ArrowRight aria-hidden="true" />} isLoading={busy} loadingLabel="Saving farm setup">{step === "calendar" ? copy.finishLabel : "Next"}</Button>
             </footer>
           </form>
         </section>
@@ -188,15 +188,14 @@ function FieldsAndCropsStep({ fields, onFieldsChange, onFieldChange }: { fields:
       <FieldLocationPicker latitude={field.latitude} longitude={field.longitude} onChange={(latitude, longitude) => onFieldChange(field.id, { latitude: String(latitude), longitude: String(longitude) })} />
       <div className="grid gap-4 sm:grid-cols-2"><FieldGroup label="Latitude" required><Input type="number" step="any" inputMode="decimal" value={field.latitude} onChange={(event) => onFieldChange(field.id, { latitude: event.target.value })} placeholder="-6.914744" /></FieldGroup><FieldGroup label="Longitude" required><Input type="number" step="any" inputMode="decimal" value={field.longitude} onChange={(event) => onFieldChange(field.id, { longitude: event.target.value })} placeholder="107.609810" /></FieldGroup></div>
       <FieldGroup label="Field notes"><Textarea className="min-h-20" value={field.notes} onChange={(event) => onFieldChange(field.id, { notes: event.target.value })} placeholder="Truck access is narrow after rain." /></FieldGroup>
-      <section className="grid gap-4 rounded-lg border border-leaf-300 bg-card p-4" aria-labelledby={`crop-batches-heading-${field.id}`}><div><h3 id={`crop-batches-heading-${field.id}`} className="text-sm font-bold text-forest-700">Shallot crop batches</h3><p className="mt-1 text-xs text-muted-foreground">These batches belong to {field.name.trim() || `Field ${fieldIndex + 1}`}.</p></div><div className="grid gap-4">{field.cropBatches.map((batch, batchIndex) => <div key={batch.id} className="grid gap-3 rounded-md border bg-background p-3"><div className="flex items-center justify-between gap-3"><p className="text-sm font-bold">Batch {batchIndex + 1}</p><Button type="button" size="sm" variant="ghost" icon={<Trash2 aria-hidden="true" />} disabled={field.cropBatches.length === 1} onClick={() => onFieldChange(field.id, { cropBatches: field.cropBatches.filter((item) => item.id !== batch.id) })}>Remove</Button></div><div className="grid gap-3 sm:grid-cols-2"><FieldGroup label="Variety"><Input value={batch.variety} onChange={(event) => onFieldChange(field.id, { cropBatches: field.cropBatches.map((item) => item.id === batch.id ? { ...item, variety: event.target.value } : item) })} placeholder="Bima Brebes" /></FieldGroup><FieldGroup label="Planting date"><Input type="date" value={batch.plantingDate} onChange={(event) => onFieldChange(field.id, { cropBatches: field.cropBatches.map((item) => item.id === batch.id ? { ...item, plantingDate: event.target.value } : item) })} /></FieldGroup></div><FieldGroup label="Batch notes"><Textarea className="min-h-20" value={batch.notes} onChange={(event) => onFieldChange(field.id, { cropBatches: field.cropBatches.map((item) => item.id === batch.id ? { ...item, notes: event.target.value } : item) })} placeholder="Farmer-reported crop context." /></FieldGroup></div>)}</div><Button type="button" variant="outline" size="sm" className="w-fit" icon={<Plus aria-hidden="true" />} onClick={() => onFieldChange(field.id, { cropBatches: [...field.cropBatches, createCropBatchDraft(field.cropBatches.length)] })}>Add crop batch</Button></section>
+      <section className="grid gap-4 rounded-lg border border-leaf-300 bg-card p-4" aria-labelledby={`crop-batches-heading-${field.id}`}><div><h3 id={`crop-batches-heading-${field.id}`} className="text-sm font-bold text-forest-700">Shallot crop batches</h3><p className="mt-1 text-xs text-muted-foreground">These batches belong to {field.name.trim() || `Field ${fieldIndex + 1}`}.</p></div><div className="grid gap-4">{field.cropBatches.map((batch, batchIndex) => <div key={batch.id} className="grid gap-3 rounded-md border bg-background p-3"><div className="flex items-center justify-between gap-3"><p className="text-sm font-bold">Batch {batchIndex + 1}</p><Button type="button" size="sm" variant="ghost" icon={<Trash2 aria-hidden="true" />} disabled={field.cropBatches.length === 1} onClick={() => onFieldChange(field.id, { cropBatches: field.cropBatches.filter((item) => item.id !== batch.id) })}>Remove</Button></div><div className="grid gap-3 sm:grid-cols-2"><FieldGroup label="Variety"><Input value={batch.variety} onChange={(event) => onFieldChange(field.id, { cropBatches: field.cropBatches.map((item) => item.id === batch.id ? { ...item, variety: event.target.value } : item) })} placeholder="Bima Brebes" /></FieldGroup><FieldGroup label="Planting date"><Input type="date" value={batch.plantingDate} onChange={(event) => onFieldChange(field.id, { cropBatches: field.cropBatches.map((item) => item.id === batch.id ? { ...item, plantingDate: event.target.value } : item) })} /></FieldGroup></div><FieldGroup label="Batch notes"><Textarea className="min-h-20" value={batch.notes} onChange={(event) => onFieldChange(field.id, { cropBatches: field.cropBatches.map((item) => item.id === batch.id ? { ...item, notes: event.target.value } : item) })} placeholder="Farmer-reported context for future missions." /></FieldGroup></div>)}</div><Button type="button" variant="outline" size="sm" className="w-fit" icon={<Plus aria-hidden="true" />} onClick={() => onFieldChange(field.id, { cropBatches: [...field.cropBatches, createCropBatchDraft(field.cropBatches.length)] })}>Add crop batch</Button></section>
     </section>)}
     <Button type="button" variant="outline" className="w-fit" icon={<Plus aria-hidden="true" />} onClick={() => onFieldsChange([...fields, createFieldDraft(fields.length)])}>Add field</Button>
   </>;
 }
 
-function ReviewStep({ farm, fields }: { farm: FarmDraft; fields: FieldDraft[] }) {
-  const batchCount = fields.reduce((total, field) => total + field.cropBatches.length, 0);
-  return <div className="grid gap-4 rounded-lg border border-leaf-300 bg-field-50/60 p-5"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-forest-700">Ready to save</p><h2 className="mt-1 text-lg font-extrabold">{farm.name}</h2></div><dl className="grid gap-3 text-sm sm:grid-cols-2"><div><dt className="font-semibold text-muted-foreground">Field blocks</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{fields.length}</dd></div><div><dt className="font-semibold text-muted-foreground">Shallot crop batches</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{batchCount}</dd></div></dl><p className="text-sm leading-6 text-muted-foreground">Finish setup sends this information to the configured local TUNAS API.</p></div>;
+function CalendarStep({ copy }: { copy: OnboardingPageCopy }) {
+  return <div className="grid gap-3 rounded-lg border border-dashed bg-field-50/60 p-4 text-center"><span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-card text-forest-700"><CalendarClock aria-hidden="true" /></span><div><h2 className="font-extrabold">{copy.calendarHeldLabel}</h2><p className="mt-1.5 text-sm leading-6 text-muted-foreground">{copy.calendarHeldBody}</p></div><Button type="button" variant="outline" className="mx-auto" disabled icon={<MapPinned aria-hidden="true" />}>Connect Google Calendar · coming soon</Button></div>;
 }
 
 function ErrorLine({ message }: { message: string }) {

@@ -5,6 +5,8 @@ export const DEMO_ONBOARDING_PAGE_COPY: OnboardingPageCopy = {
   description: "Add the farm, field, and shallot details needed to plan harvest work.",
   farmStepTitle: "Farm profile",
   fieldsAndCropsStepTitle: "Fields and crop batches",
-  reviewStepTitle: "Review farm setup",
+  calendarStepTitle: "Google Calendar",
   finishLabel: "Finish setup",
+  calendarHeldLabel: "Google Calendar",
+  calendarHeldBody: "Calendar connection is paused until the backend OAuth flow is ready. You can continue without it.",
 };

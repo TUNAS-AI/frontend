@@ -1,4 +1,4 @@
-import type { BuyerCommitment, CropBatch, FarmBlock, FarmObservation, FieldsPageData } from "@/features/farm/types";
+import type { BuyerCommitment, CropBatch, FarmBlock, FarmObservation, FieldsPageData, LinkedFarmMission } from "@/features/farm/types";
 
 type SourceRecord = Record<string, unknown>;
 
@@ -33,12 +33,23 @@ function parseBlock(value: unknown): FarmBlock {
   };
 }
 
+function parseMission(value: unknown): LinkedFarmMission {
+  const source = record(value, "batch.mission");
+  const href = text(source, "href", "batch.mission");
+  if (!href.startsWith("/missions/")) throw new Error("Invalid farm fixture: linked mission href must point to a mission detail route.");
+  return {
+    id: text(source, "id", "batch.mission"), title: text(source, "title", "batch.mission"), statusLabel: text(source, "statusLabel", "batch.mission"),
+    statusTone: oneOf(text(source, "statusTone", "batch.mission"), ["success", "warning", "info", "ai"] as const, "batch.mission.statusTone"), href,
+  };
+}
+
 function parseBatch(value: unknown): CropBatch {
   const source = record(value, "batch");
+  const mission = source.mission === undefined ? undefined : parseMission(source.mission);
   return {
     id: text(source, "id", "batch"), crop: text(source, "crop", "batch"), batchLabel: text(source, "batchLabel", "batch"), variety: text(source, "variety", "batch"),
     blockId: text(source, "blockId", "batch"), plantedLabel: text(source, "plantedLabel", "batch"), stage: text(source, "stage", "batch"), readinessLabel: text(source, "readinessLabel", "batch"),
-    statusLabel: text(source, "statusLabel", "batch"), notes: text(source, "notes", "batch"), sourceLabel: text(source, "sourceLabel", "batch"),
+    statusLabel: text(source, "statusLabel", "batch"), notes: text(source, "notes", "batch"), sourceLabel: text(source, "sourceLabel", "batch"), mission,
   };
 }
 
@@ -69,9 +80,15 @@ export function parseFarmPageData(value: unknown): FieldsPageData {
   if (!batches.every((batch) => blockIds.has(batch.blockId)) || !observations.every((observation) => blockIds.has(observation.blockId)) || !commitments.every((commitment) => blockIds.has(commitment.blockId)) || !commitments.every((commitment) => !commitment.batchId || batchIds.has(commitment.batchId))) {
     throw new Error("Invalid farm fixture: a record references an unknown field block or crop batch.");
   }
+  const assistant = record(source.assistant, "assistant");
   return {
     sourceLabel: text(source, "sourceLabel", "farm response"), title: text(source, "title", "farm response"), description: text(source, "description", "farm response"), freshness: text(source, "freshness", "farm response"),
     farm: { name: text(farm, "name", "farm"), location: text(farm, "location", "farm"), timezone: text(farm, "timezone", "farm"), notes: text(farm, "notes", "farm") },
     blocks, batches, observations, commitments,
+    assistant: {
+      contextLabel: text(assistant, "contextLabel", "assistant"), starterMessage: text(assistant, "starterMessage", "assistant"),
+      responses: list(assistant, "responses", "assistant").map((response) => { const item = record(response, "assistant response"); return { id: text(item, "id", "assistant response"), keywords: list(item, "keywords", "assistant response").map((keyword) => { if (typeof keyword !== "string") throw new Error("Invalid farm fixture: assistant keywords must be strings."); return keyword; }), text: text(item, "text", "assistant response") }; }),
+      fallbackResponse: text(assistant, "fallbackResponse", "assistant"),
+    },
   };
 }
