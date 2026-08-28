@@ -1,109 +1,64 @@
-import { useEffect, useMemo } from "react";
-import { AlertTriangle, ArrowLeft, CalendarClock, CheckCircle2, Circle, CircleCheck, Clock3, MessageSquareWarning, XCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, CalendarDays, CheckCircle2, Circle, ClipboardCheck, ClipboardList, Play, ShieldAlert, Sprout } from "lucide-react";
 import { Link } from "react-router";
-import { openTunasAssistantWithDraft } from "@/components/app/assistantControl";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/Alert";
-import { Badge, type BadgeProps } from "@/components/ui/Badge";
+import type { Mission, MissionCloseoutInput, MissionStage, MissionStep } from "@/api/missions";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { RiskIndicator } from "@/components/ui/RiskIndicator";
-import { MissionCloseoutPanel } from "./components/MissionCloseoutPanel";
-import type { MissionCloseoutDraft, MissionDetailPageData, MissionExecutionStep, MissionExecutionStepStatus } from "./detailTypes";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { formatStepSchedule, missionPlan, StageBadge, StatusBadge } from "./MissionsView";
 
-const statusVariants: Record<MissionExecutionStepStatus, BadgeProps["variant"]> = {
-  completed: "success",
-  "in-progress": "ai",
-  scheduled: "info",
-  "waiting-confirmation": "warning",
-  "unable-to-continue": "danger",
-};
+type AdvanceStage = "HARVESTING" | "DRYING" | "FINISHED" | "TO_REVIEW";
+type Props = { mission: Mission; onDelete: () => void; deleting: boolean; action: string | null; onAdvance: (stage: AdvanceStage) => void; onCompleteStep: (stepId: string) => void; onSaveCloseout: (values: MissionCloseoutInput) => void; onConfirmCloseout: () => void };
 
-const statusIcons = {
-  completed: CircleCheck,
-  "in-progress": Circle,
-  scheduled: Clock3,
-  "waiting-confirmation": AlertTriangle,
-  "unable-to-continue": XCircle,
-} as const;
-
-type MissionDetailViewProps = {
-  data: MissionDetailPageData;
-  closeoutClosed: boolean;
-  closeoutRequested: boolean;
-  closeoutResult: MissionCloseoutDraft | null;
-  onConfirmCloseout: (draft: MissionCloseoutDraft) => void;
-  latestAssumedTask: MissionExecutionStep | null;
-  nextTask: MissionExecutionStep | null;
-  steps: MissionExecutionStep[];
-};
-
-export function MissionDetailView({ closeoutClosed, closeoutRequested, closeoutResult, data, latestAssumedTask, nextTask, onConfirmCloseout, steps }: MissionDetailViewProps) {
-  const completedCount = useMemo(() => steps.filter((step) => step.status === "completed").length, [steps]);
-  const assumedCount = useMemo(() => steps.filter((step) => step.completionSource === "assumed-by-time").length, [steps]);
-
-  useEffect(() => {
-    document.title = `${data.title} | TUNAS`;
-  }, [data.title]);
-
-  return (
-    <div className="grid gap-5">
-      <Link to="/missions" className="inline-flex min-h-11 w-fit items-center gap-2 rounded-md px-1 text-sm font-bold text-forest-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/30">
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to missions
-      </Link>
-
-      <PageHeader
-        badges={<><Badge variant={closeoutClosed ? "success" : "ai"}>{closeoutClosed ? "Closed" : data.statusLabel}</Badge><RiskIndicator level={data.risk} label={data.riskLabel} /><Badge variant="source">Demo only</Badge></>}
-        eyebrow="Mission execution"
-        title={data.title}
-        description={data.objective}
-        meta={data.freshness}
-        actions={<Button type="button" variant="outline" disabled={closeoutClosed} icon={<CheckCircle2 aria-hidden="true" />} onClick={() => openTunasAssistantWithDraft(`I would like to close out the mission “${data.title}”.`)}>{closeoutClosed ? "Mission closed" : "Close mission"}</Button>}
-      />
-
-      {closeoutClosed ? <Alert variant="success" aria-live="polite"><CheckCircle2 aria-hidden="true" /><AlertTitle>Mission closed in this demo session</AlertTitle><AlertDescription>{closeoutResult?.outcome} The result is not persisted and no external Calendar event was changed.</AlertDescription></Alert> : <Card variant="highlight">
-        <CardHeader><p className="text-xs font-bold uppercase tracking-[0.14em] text-forest-700">Next task in the approved plan</p><CardTitle className="text-2xl">{nextTask?.title ?? "Plan tasks elapsed"}</CardTitle><p className="max-w-3xl leading-7 text-muted-foreground">{nextTask?.description ?? "The schedule has reached the end of the approved task list. Report only exceptions, then close the mission when the outcome is ready."}</p></CardHeader>
-        <CardContent className="flex flex-col gap-3 sm:flex-row">
-          <Button type="button" variant="outline" disabled={!latestAssumedTask} icon={<MessageSquareWarning aria-hidden="true" />} onClick={() => latestAssumedTask && openTunasAssistantWithDraft(`The task “${latestAssumedTask.title}” was not done.`)}>Report task not done</Button>
-          <Button type="button" variant="outline" disabled={!nextTask} icon={<CalendarClock aria-hidden="true" />} onClick={() => nextTask && openTunasAssistantWithDraft(`I would like to move this task: “${nextTask.title}”.`)}>Request a new time</Button>
-        </CardContent>
-      </Card>}
-
-      {closeoutRequested && !closeoutClosed ? <MissionCloseoutPanel data={data} onConfirm={onConfirmCloseout} /> : null}
-
-      <section aria-labelledby="execution-progress-heading" className="grid gap-4">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-          <div><h2 id="execution-progress-heading" className="text-xl font-extrabold">Plan progress</h2><p className="mt-1 text-sm text-muted-foreground">Routine tasks advance when their scheduled window ends. Report only missed or moved work.</p></div>
-          <p className="font-bold tabular-nums">{completedCount} of {steps.length} completed</p>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Mission execution progress" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={completedCount}><div className="h-full rounded-full bg-forest-500 transition-[width]" style={{ width: `${steps.length ? (completedCount / steps.length) * 100 : 0}%` }} /></div>
-
-        <ol className="grid gap-3">
-          {steps.map((step, index) => {
-            const Icon = statusIcons[step.status];
-            return (
-              <li key={step.id}>
-                <Card variant={step.status === "in-progress" ? "highlight" : "default"}>
-                  <CardContent className="flex gap-4 pt-5 sm:pt-6">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-muted text-forest-700"><Icon className="h-5 w-5" aria-hidden="true" /></span>
-                    <div className="min-w-0 flex-1"><div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Task {index + 1}</p><h3 className="mt-1 text-lg font-bold">{step.title}</h3></div><div className="flex flex-wrap gap-2"><Badge variant={statusVariants[step.status]}>{step.statusLabel}</Badge>{step.completionSource === "assumed-by-time" ? <Badge variant="source">Assumed by schedule</Badge> : null}{step.completionSource === "user-confirmed" ? <Badge variant="source">User confirmed</Badge> : null}</div></div><p className="mt-2 leading-6 text-muted-foreground">{step.description}</p>{step.completedLabel || step.scheduledLabel ? <p className="mt-2 text-sm font-semibold text-muted-foreground">{step.completedLabel ?? step.scheduledLabel}</p> : null}</div>
-                  </CardContent>
-                </Card>
-              </li>
-            );
-          })}
-        </ol>
-        {assumedCount ? <p className="text-sm leading-6 text-muted-foreground"><strong className="text-foreground">{assumedCount} task{assumedCount === 1 ? "" : "s"}</strong> completed by elapsed schedule rather than direct user confirmation. These can be corrected through Ask TUNAS.</p> : null}
-      </section>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Card><CardHeader><CardTitle>Approved strategy</CardTitle></CardHeader><CardContent className="grid gap-4"><div><p className="text-sm font-semibold text-muted-foreground">{data.plan.name}</p><p className="mt-1 leading-7">{data.plan.summary}</p></div><dl className="grid gap-3 border-t pt-4"><div><dt className="text-sm font-semibold text-muted-foreground">Expected result</dt><dd className="mt-1 font-bold">{data.plan.expectedResult}</dd></div><div><dt className="text-sm font-semibold text-muted-foreground">Constraint</dt><dd className="mt-1">{data.plan.constraint}</dd></div></dl></CardContent></Card>
-        <Card><CardHeader><CardTitle>Approval record</CardTitle></CardHeader><CardContent><ol className="grid gap-4">{data.approvalHistory.map((item) => <li key={item.id} className="border-l-2 border-forest-300 pl-4"><p className="font-bold">{item.label}</p><p className="mt-1 text-sm leading-5 text-muted-foreground">{item.detail}</p><time className="mt-1 block text-xs text-muted-foreground" dateTime={item.dateTime}>{item.timeLabel}</time></li>)}</ol></CardContent></Card>
-      </div>
-
-      <Alert variant={data.impact.tone}><AlertTriangle aria-hidden="true" /><AlertTitle>{data.impact.title}</AlertTitle><AlertDescription>{data.impact.description}</AlertDescription></Alert>
-
-      <details className="rounded-lg border bg-card"><summary className="min-h-11 cursor-pointer px-5 py-4 font-bold focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-ring/30">Original mission request</summary><p className="border-t px-5 py-4 leading-7 text-muted-foreground">{data.originalRequest}</p></details>
-    </div>
-  );
+export function MissionDetailView({ mission, onDelete, deleting, action, onAdvance, onCompleteStep, onSaveCloseout, onConfirmCloseout }: Props) {
+  const plan = missionPlan(mission);
+  const batches = mission.cropBatches.map((item) => item.cropBatch.variety || "Shallot batch");
+  const currentStep = ["HARVESTING", "DRYING"].includes(mission.stage) ? mission.missionSteps.find((step) => step.stage === mission.stage && step.status !== "COMPLETED") : undefined;
+  const [closeoutOpen, setCloseoutOpen] = useState(mission.status === "CLOSEOUT");
+  useEffect(() => { setCloseoutOpen(mission.status === "CLOSEOUT"); }, [mission.status]);
+  return <div className="grid gap-6"><PageHeader eyebrow="Mission details" title="Harvest mission" description={mission.originalMessage} badges={<><StatusBadge status={mission.status} /><StageBadge stage={mission.stage} /></>} actions={<div className="flex w-full flex-wrap justify-end gap-2 sm:w-auto"><Button asChild type="button" variant="outline" icon={<ArrowLeft aria-hidden="true" />}><Link to="/missions">All missions</Link></Button>{mission.closeout ? <Button type="button" variant="secondary" icon={<ClipboardCheck aria-hidden="true" />} onClick={() => setCloseoutOpen(true)}>View closeout</Button> : null}<Button type="button" variant="danger" onClick={onDelete} isLoading={deleting} loadingLabel="Deleting mission">Delete mission</Button></div>} />
+    <div className="grid gap-6"><LifecycleCard mission={mission} currentStep={currentStep} action={action} onAdvance={onAdvance} onCompleteStep={onCompleteStep} onOpenCloseout={() => setCloseoutOpen(true)} />
+      <Card><CardHeader><CardTitle>Mission context</CardTitle><CardDescription>Farmer request and crop batches included in this mission.</CardDescription></CardHeader><CardContent className="grid gap-4"><div><p className="text-sm font-semibold text-muted-foreground">Farmer request</p><p className="mt-1 leading-7">{mission.originalMessage}</p></div>{batches.length ? <div className="border-t pt-4"><p className="text-sm font-semibold text-muted-foreground">Crop batches</p><div className="mt-2 flex flex-wrap gap-2">{batches.map((batch, index) => <Badge key={`${batch}-${index}`} variant="source"><Sprout aria-hidden="true" />{batch}</Badge>)}</div></div> : null}{mission.notes ? <div className="border-t pt-4"><p className="text-sm font-semibold text-muted-foreground">Notes</p><p className="mt-1 leading-7">{mission.notes}</p></div> : null}</CardContent></Card>
+      {plan ? <PlanCard plan={plan} /> : null}
+      <ScheduleCard steps={mission.missionSteps} currentStepId={currentStep?.missionStepId} />
+    </div><Dialog open={closeoutOpen} onOpenChange={setCloseoutOpen}><DialogContent className="sm:max-w-2xl"><DialogHeader><DialogTitle>{mission.closeout ? "Review closeout" : "Close out this mission"}</DialogTitle><DialogDescription>{mission.closeout ? "Review the recorded outcome before completing the mission." : "Compare the planned outcome with what happened in the field."}</DialogDescription></DialogHeader>{mission.closeout ? <CloseoutCard mission={mission} confirming={action === "confirm-closeout"} onConfirm={onConfirmCloseout} /> : <CloseoutForm mission={mission} saving={action === "closeout"} onSave={onSaveCloseout} />}</DialogContent></Dialog></div>;
 }
+
+function LifecycleCard({ mission, currentStep, action, onAdvance, onCompleteStep, onOpenCloseout }: Pick<Props, "mission" | "action" | "onAdvance" | "onCompleteStep"> & { currentStep?: MissionStep; onOpenCloseout: () => void }) {
+  const actionForStage = nextAction(mission, currentStep);
+  return <Card variant="highlight"><CardHeader><CardTitle>Mission progress</CardTitle><CardDescription>Complete the approved batches in order. You may record the current batch early; its schedule remains unchanged.</CardDescription></CardHeader><CardContent className="grid gap-5"><ol className="grid gap-3 sm:grid-cols-3">{(["WAITING", "HARVESTING", "DRYING"] as const).map((stage) => <li key={stage} className={`flex items-center gap-3 rounded-md border p-3 ${stage === mission.stage ? "border-primary bg-primary/5" : isPastStage(mission.stage, stage) ? "border-leaf-300 bg-leaf-100/50" : "bg-card"}`}>{isPastStage(mission.stage, stage) ? <CheckCircle2 className="h-5 w-5 text-success-foreground" aria-hidden="true" /> : <Circle className="h-5 w-5 text-muted-foreground" aria-hidden="true" />}<span className="font-bold">{stage === "WAITING" ? "Waiting" : stage === "HARVESTING" ? "Harvesting" : "Drying"}</span></li>)}</ol>
+    {currentStep ? <div className="rounded-md border border-primary/30 bg-card p-4"><p className="text-sm font-semibold text-primary">Current batch</p><h3 className="mt-1 text-lg font-extrabold">{currentStep.title}</h3><p className="mt-1 text-sm leading-6 text-muted-foreground">{currentStep.description}</p><p className="mt-3 flex items-center gap-1.5 text-sm font-semibold"><CalendarDays className="h-4 w-4 text-primary" aria-hidden="true" />{formatStepSchedule(currentStep)}</p></div> : <p className="rounded-md border bg-card p-4 text-sm leading-6 text-muted-foreground">{mission.status === "COMPLETED" ? "This mission is complete." : mission.status === "CLOSEOUT" ? "Record the real outcome, then confirm it to complete this mission." : mission.stage === "FINISHED" ? "All scheduled batches are complete. Start closeout when you are ready to record the result." : "Start the next stage when you are ready."}</p>}
+    {mission.status === "CLOSEOUT" ? <Button type="button" className="justify-self-end" icon={<ClipboardCheck aria-hidden="true" />} onClick={onOpenCloseout}>{mission.closeout ? "Review closeout" : "Record closeout"}</Button> : actionForStage ? <Button type="button" className="justify-self-end" icon={actionForStage.kind === "step" ? <ClipboardCheck aria-hidden="true" /> : <Play aria-hidden="true" />} isLoading={action === actionForStage.id} loadingLabel={actionForStage.label} onClick={() => actionForStage.kind === "step" ? onCompleteStep(actionForStage.id) : onAdvance(actionForStage.id as AdvanceStage)}>{actionForStage.label}</Button> : null}
+  </CardContent></Card>;
+}
+
+function ScheduleCard({ steps, currentStepId }: { steps: MissionStep[]; currentStepId?: string }) {
+  return <Card><CardHeader><CardTitle>Approved schedule</CardTitle><CardDescription>Only the next scheduled batch can be completed.</CardDescription></CardHeader><CardContent className="grid gap-3">{steps.length ? steps.map((step) => <article key={step.missionStepId} className={`grid gap-3 rounded-md border p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-start ${step.missionStepId === currentStepId ? "border-primary/40 bg-primary/5" : ""}`}><span className="grid h-8 w-8 place-items-center rounded-full bg-primary/10 text-sm font-extrabold text-primary">{step.sequence}</span><div><h3 className="font-bold">{step.title}</h3><p className="mt-1 text-sm leading-6 text-muted-foreground">{step.description}</p><p className="mt-2 flex items-center gap-1.5 text-sm font-semibold"><CalendarDays className="h-4 w-4 text-primary" aria-hidden="true" />{formatStepSchedule(step)}</p></div><Badge variant={step.status === "COMPLETED" ? "success" : step.missionStepId === currentStepId ? "info" : "neutral"}>{step.status === "COMPLETED" ? "Completed" : step.missionStepId === currentStepId ? "Current batch" : "Scheduled"}</Badge></article>) : <p className="text-sm leading-6 text-muted-foreground">No schedule steps are available for this mission.</p>}</CardContent></Card>;
+}
+
+function CloseoutForm({ mission, saving, onSave }: { mission: Mission; saving: boolean; onSave: (values: MissionCloseoutInput) => void }) {
+  const plannedHarvestKg = plannedMetric(mission, "plannedHarvestKg"); const plannedDriedKg = plannedMetric(mission, "plannedDriedKg");
+  const [values, setValues] = useState({ actualHarvestKg: "", actualDriedKg: "", harvestedAreaHectares: "", buyerTargetMet: "yes", dryingCompleted: "yes", rejectedKg: "", notes: "" });
+  const set = (key: keyof typeof values, value: string) => setValues((current) => ({ ...current, [key]: value }));
+  const optional = (value: string) => value === "" ? null : Number(value);
+  return <Card variant="highlight"><CardHeader><CardTitle>Close out this mission</CardTitle><CardDescription>Compare the planned outcome with what happened in the field. This is saved for future mission context.</CardDescription></CardHeader><CardContent><form className="grid gap-5" onSubmit={(event) => { event.preventDefault(); onSave({ actualHarvestKg: Number(values.actualHarvestKg), actualDriedKg: Number(values.actualDriedKg), harvestedAreaHectares: optional(values.harvestedAreaHectares), buyerTargetMet: values.buyerTargetMet === "yes", dryingCompleted: values.dryingCompleted === "yes", rejectedKg: optional(values.rejectedKg), notes: values.notes.trim() || null }); }}><div className="grid gap-3 rounded-md border bg-card p-4 sm:grid-cols-2"><Metric label="Planned harvest" value={plannedHarvestKg} /><Metric label="Planned dried output" value={plannedDriedKg} /></div><div className="grid gap-4 sm:grid-cols-2"><Field label="Actual harvest (kg)" value={values.actualHarvestKg} onChange={(value) => set("actualHarvestKg", value)} required /><Field label="Actual dried output (kg)" value={values.actualDriedKg} onChange={(value) => set("actualDriedKg", value)} required /><Field label="Harvested area (hectares)" value={values.harvestedAreaHectares} onChange={(value) => set("harvestedAreaHectares", value)} /><Field label="Rejected or damaged (kg)" value={values.rejectedKg} onChange={(value) => set("rejectedKg", value)} /></div><div className="grid gap-4 sm:grid-cols-2"><Decision label="Was the buyer target met?" value={values.buyerTargetMet} onChange={(value) => set("buyerTargetMet", value)} /><Decision label="Was drying completed?" value={values.dryingCompleted} onChange={(value) => set("dryingCompleted", value)} /></div><label className="grid gap-2 text-sm font-semibold">Problems or deviations <span className="font-normal text-muted-foreground">Optional</span><Textarea value={values.notes} onChange={(event) => set("notes", event.target.value)} placeholder="Rain, worker availability, lower yield, buyer changes…" /></label><Button type="submit" className="justify-self-end" isLoading={saving} loadingLabel="Saving closeout">Save closeout for review</Button></form></CardContent></Card>;
+}
+
+function CloseoutCard({ mission, confirming, onConfirm }: { mission: Mission; confirming: boolean; onConfirm: () => void }) {
+  const closeout = mission.closeout!;
+  return <Card variant="success"><CardHeader><CardTitle>Closeout ready for confirmation</CardTitle><CardDescription>Review the farmer-recorded result, then complete the mission.</CardDescription></CardHeader><CardContent className="grid gap-4"><dl className="grid gap-3 sm:grid-cols-2"><Metric label="Planned harvest" value={closeout.plannedHarvestKg} /><Metric label="Actual harvest" value={closeout.actualHarvestKg} /><Metric label="Planned dried output" value={closeout.plannedDriedKg} /><Metric label="Actual dried output" value={closeout.actualDriedKg} /></dl><div className="grid gap-2 rounded-md border bg-card p-4 text-sm leading-6"><p><span className="font-bold">Harvest difference: </span>{difference(closeout.actualHarvestKg, closeout.plannedHarvestKg)} kg</p><p><span className="font-bold">Dried-output difference: </span>{difference(closeout.actualDriedKg, closeout.plannedDriedKg)} kg</p></div><div className="grid gap-2 border-t pt-4 text-sm leading-6"><p><span className="font-bold">Buyer target: </span>{closeout.buyerTargetMet ? "Met" : "Not met"}</p><p><span className="font-bold">Drying: </span>{closeout.dryingCompleted ? "Completed" : "Not completed"}</p>{closeout.harvestedAreaHectares !== null ? <p><span className="font-bold">Harvested area: </span>{closeout.harvestedAreaHectares.toLocaleString("en-ID")} ha</p> : null}{closeout.rejectedKg !== null ? <p><span className="font-bold">Rejected or damaged: </span>{closeout.rejectedKg.toLocaleString("en-ID")} kg</p> : null}{closeout.notes ? <p><span className="font-bold">Deviations: </span>{closeout.notes}</p> : null}</div><Button type="button" className="w-full sm:w-fit" icon={<CheckCircle2 aria-hidden="true" />} isLoading={confirming} loadingLabel="Confirming closeout" onClick={onConfirm}>Confirm and complete mission</Button></CardContent></Card>;
+}
+
+function Field({ label, value, onChange, required = false }: { label: string; value: string; onChange: (value: string) => void; required?: boolean }) { return <label className="grid gap-2 text-sm font-semibold">{label}{required ? <span aria-hidden="true"> *</span> : null}<Input type="number" min="0" step="any" required={required} value={value} onChange={(event) => onChange(event.target.value)} /></label>; }
+function Decision({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) { return <fieldset className="grid gap-2"><legend className="text-sm font-semibold">{label}</legend><div className="flex gap-4"><label className="flex min-h-11 items-center gap-2 text-sm"><input type="radio" name={label} value="yes" checked={value === "yes"} onChange={(event) => onChange(event.target.value)} />Yes</label><label className="flex min-h-11 items-center gap-2 text-sm"><input type="radio" name={label} value="no" checked={value === "no"} onChange={(event) => onChange(event.target.value)} />No</label></div></fieldset>; }
+function Metric({ label, value }: { label: string; value: number | null }) { return <div><dt className="text-sm font-semibold text-muted-foreground">{label}</dt><dd className="mt-1 text-xl font-extrabold tabular-nums">{value === null ? "Not recorded" : `${value.toLocaleString("en-ID")} kg`}</dd></div>; }
+function plannedMetric(mission: Mission, key: "plannedHarvestKg" | "plannedDriedKg") { const value = mission.constraints.find((item) => item.key === key)?.value; return typeof value === "number" ? value : null; }
+function difference(actual: number, planned: number) { return `${actual - planned >= 0 ? "+" : ""}${(actual - planned).toLocaleString("en-ID")}`; }
+function isPastStage(current: MissionStage, stage: "WAITING" | "HARVESTING" | "DRYING") { return ["WAITING", "HARVESTING", "DRYING", "FINISHED", "TO_REVIEW", "COMPLETED"].indexOf(current) > ["WAITING", "HARVESTING", "DRYING"].indexOf(stage); }
+function nextAction(mission: Mission, currentStep?: MissionStep) { if (mission.status !== "ACTIVE") return null; if (mission.stage === "WAITING") return { kind: "stage" as const, id: "HARVESTING", label: "Start harvesting" }; if (currentStep) return { kind: "step" as const, id: currentStep.missionStepId, label: "Mark batch complete" }; if (mission.stage === "HARVESTING") return { kind: "stage" as const, id: "DRYING", label: "Start drying" }; if (mission.stage === "DRYING") return { kind: "stage" as const, id: "FINISHED", label: "Finish execution" }; if (mission.stage === "FINISHED") return { kind: "stage" as const, id: "TO_REVIEW", label: "Start closeout" }; return null; }
+function PlanCard({ plan }: { plan: NonNullable<ReturnType<typeof missionPlan>> }) { return <Card variant="highlight"><CardHeader><div className="flex flex-wrap items-center gap-2"><CardTitle>Approved plan</CardTitle>{plan.recommended ? <Badge variant="ai"><ClipboardList aria-hidden="true" />TUNAS recommendation</Badge> : null}</div><CardDescription>{plan.summary}</CardDescription></CardHeader><CardContent className="grid gap-4">{plan.assumptions.length ? <Section label="Assumptions" values={plan.assumptions} /> : null}{Object.keys(plan.risks).length ? <div className="rounded-md border border-harvest-300 bg-harvest-100/50 p-4"><p className="flex items-center gap-2 font-bold text-harvest-700"><ShieldAlert className="h-4 w-4" aria-hidden="true" />Risks to review</p><ul className="mt-2 grid gap-1 text-sm leading-6 text-ink-700">{Object.entries(plan.risks).map(([risk, reason]) => <li key={risk}><span className="font-semibold">{risk}: </span>{reason}</li>)}</ul></div> : null}<p className="text-sm leading-6 text-muted-foreground">Drying estimate: {plan.dryingEstimateDays} days. {plan.dryingEstimateReason}</p></CardContent></Card>; }
+function Section({ label, values }: { label: string; values: string[] }) { return <div><p className="font-bold">{label}</p><ul className="mt-2 grid gap-1 text-sm leading-6 text-muted-foreground">{values.map((value) => <li key={value}>• {value}</li>)}</ul></div>; }

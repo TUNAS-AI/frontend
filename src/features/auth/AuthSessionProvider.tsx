@@ -13,7 +13,10 @@ import { AuthSessionContext, type AuthSessionContextValue } from "./authSessionC
 type AuthSessionState = Pick<AuthSessionContextValue, "status" | "session">;
 
 export function AuthSessionProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthSessionState>({ status: "loading", session: null });
+  const [state, setState] = useState<AuthSessionState>(() => {
+    const session = readAuthSession();
+    return session && isSessionActive(session) ? { status: "ready", session } : { status: "ready", session: null };
+  });
 
   const syncStoredSession = useCallback(() => {
     const session = readAuthSession();
@@ -36,6 +39,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       return () => window.removeEventListener(AUTH_SESSION_CHANGE_EVENT, syncStoredSession);
     }
 
+    setState({ status: "ready", session });
     void refreshGoogleAuthSession(session, apiFetch)
       .then((refreshed) => {
         if (!active || readAuthSession()?.accessToken !== session.accessToken) return;

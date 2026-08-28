@@ -136,19 +136,22 @@ function responseIdentity(value: unknown): GoogleIdentity {
   };
 }
 
+function parseSessionResponse(value: unknown) {
+  if (!object(value) || typeof value.hasFarm !== "boolean") throw new Error("The sign-in session could not be verified.");
+  return { identity: responseIdentity(value), hasFarm: value.hasFarm };
+}
+
 export async function completeGoogleCallback(fragment: string, request: AuthRequest, now = Date.now()): Promise<AuthSession> {
   const { accessToken, expiresInSeconds } = parseGoogleCallback(fragment);
   const headers = { Authorization: `Bearer ${accessToken}` };
   const sessionResponse = await request("/api/session", { headers });
   if (!sessionResponse.ok) throw new Error("The sign-in session could not be verified. Please try again.");
-
-  const farmResponse = await request("/api/farm", { headers });
-  if (!farmResponse.ok && farmResponse.status !== 404) throw new Error("We could not check your farm setup. Please try again.");
+  const verified = parseSessionResponse(await sessionResponse.json());
   return createGoogleAuthSession({
     accessToken,
     expiresInSeconds,
-    identity: responseIdentity(await sessionResponse.json()),
-    hasFarm: farmResponse.status !== 404,
+    identity: verified.identity,
+    hasFarm: verified.hasFarm,
     now,
   });
 }
@@ -157,19 +160,15 @@ export async function refreshGoogleAuthSession(session: AuthSession, request: Au
   const headers = { Authorization: `Bearer ${session.accessToken}` };
   const sessionResponse = await request("/api/session", { headers });
   if (!sessionResponse.ok) throw new Error("The sign-in session could not be verified. Please sign in again.");
-
-  const farmResponse = await request("/api/farm", { headers });
-  if (!farmResponse.ok && farmResponse.status !== 404) throw new Error("We could not check your farm setup. Please try again.");
-  const identity = responseIdentity(await sessionResponse.json());
-  const hasFarm = farmResponse.status !== 404;
+  const verified = parseSessionResponse(await sessionResponse.json());
   return {
     ...session,
-    hasFarm,
+    hasFarm: verified.hasFarm,
     account: {
       ...session.account,
-      id: identity.userId,
-      email: identity.email ?? "Google account",
-      displayName: identity.displayName?.trim() || identity.email?.split("@")[0] || "Farmer",
+      id: verified.identity.userId,
+      email: verified.identity.email ?? "Google account",
+      displayName: verified.identity.displayName?.trim() || verified.identity.email?.split("@")[0] || "Farmer",
     },
   };
 }

@@ -2,6 +2,7 @@ import { LogOut, RotateCcw, Sprout } from "lucide-react";
 import { useState, type ComponentType, type ReactNode, type SVGProps } from "react";
 import { NavLink, useNavigate } from "react-router";
 import { deleteFarmForOnboardingReset } from "@/api/farm/reset";
+import type { FarmSnapshot } from "@/api/farm";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -12,11 +13,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/Button";
-import { userProfilePlaceholderData } from "@/api/profile";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { useAuthSession } from "@/features/auth/useAuthSession";
-import type { UserProfile } from "@/types/userProfile";
 import { cn } from "@/utils/cn";
-import { AppIdentityPanel } from "./AppIdentityPanel";
+import { FarmSnapshotPanel } from "@/features/farm/components/FarmSnapshotPanel";
 
 type NavigationIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -33,11 +33,15 @@ type AppShellProps<Id extends string> = {
   assistant?: ReactNode;
   children: ReactNode;
   context?: ReactNode;
+  contextLoading?: boolean;
   contextLabel?: string;
+  farmSnapshot?: FarmSnapshot;
+  farmSnapshotError?: string | null;
+  farmSnapshotLoading?: boolean;
   mobileHeaderAction?: ReactNode;
   navigationItems: readonly AppNavigationItem<Id>[];
+  onFarmSnapshotRetry?: () => void;
   onNavigate?: (item: Id) => void;
-  userProfile?: UserProfile;
 };
 
 export function AppShell<Id extends string>({
@@ -45,14 +49,18 @@ export function AppShell<Id extends string>({
   assistant,
   children,
   context,
+  contextLoading = false,
   contextLabel = "Mission context",
+  farmSnapshot,
+  farmSnapshotError,
+  farmSnapshotLoading,
   mobileHeaderAction,
   navigationItems,
+  onFarmSnapshotRetry,
   onNavigate,
-  userProfile = userProfilePlaceholderData,
 }: AppShellProps<Id>) {
   const navigate = useNavigate();
-  const { signOut } = useAuthSession();
+  const { signOut, session } = useAuthSession();
   const [isResetting, setIsResetting] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
@@ -73,6 +81,7 @@ export function AppShell<Id extends string>({
       setIsResetting(false);
     }
   };
+  const contextContent = context ?? (contextLoading ? <ContextLoadingShell label={contextLabel} /> : null);
 
   return (
     <AlertDialog open={resetOpen} onOpenChange={(open) => { if (!isResetting) setResetOpen(open); }}>
@@ -87,7 +96,13 @@ export function AppShell<Id extends string>({
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-3 pb-36 pt-3 sm:px-5 md:gap-6 md:pb-8 md:pt-5 lg:grid-cols-[220px_minmax(0,1fr)_320px] lg:px-6 lg:pt-6">
         <aside className="hidden lg:block">
           <div className="sticky top-6 grid gap-5">
-            <AppIdentityPanel profile={userProfile} />
+            <FarmSnapshotPanel
+              farmerName={session?.account.displayName ?? "Farmer"}
+              snapshot={farmSnapshot}
+              snapshotError={farmSnapshotError}
+              snapshotLoading={farmSnapshotLoading}
+              onRetry={onFarmSnapshotRetry}
+            />
             <DesktopNavigation
               activeItem={activeItem}
               items={navigationItems}
@@ -104,23 +119,23 @@ export function AppShell<Id extends string>({
             {mobileHeaderAction}
           </header>
 
-          {context ? (
+          {contextContent ? (
             <details className="rounded-lg border bg-card lg:hidden">
               <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-bold text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-ring/30">
                 {contextLabel}
               </summary>
-              <div className="border-t p-3">{context}</div>
+              <div className="border-t p-3">{contextContent}</div>
             </details>
           ) : null}
 
-          <main id="main-content" className="min-w-0" tabIndex={-1}>
+          <main id="main-content" className="motion-enter min-w-0" tabIndex={-1}>
             {children}
           </main>
         </div>
 
-        {context ? (
+        {contextContent ? (
           <aside className="hidden lg:block" aria-label={contextLabel}>
-            <div className="sticky top-6">{context}</div>
+            <div className="sticky top-6">{contextContent}</div>
           </aside>
         ) : null}
       </div>
@@ -146,6 +161,23 @@ export function AppShell<Id extends string>({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  );
+}
+
+function ContextLoadingShell({ label }: { label: string }) {
+  return (
+    <section className="motion-enter grid gap-4 rounded-lg border bg-card p-5 shadow-farm" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading {label.toLowerCase()}…</span>
+      <div className="grid gap-2">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-9 w-20" />
+        <Skeleton className="h-4 w-36" />
+      </div>
+      <div className="grid gap-3 border-t pt-4">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    </section>
   );
 }
 

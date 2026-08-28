@@ -1,150 +1,43 @@
-import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, Clock3, MapPin, ShieldCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
+import { getCalendarMissionSteps, type CalendarMissionStep } from "@/api/missions";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { LoadingShell } from "@/components/ui/LoadingShell";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { buildMonthGrid, formatDateLabel, formatMonthLabel, shiftMonth } from "./calendarUtils";
-import type { ApprovedMissionEvent, CalendarPageData } from "./types";
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const monthFormat = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" });
+const weekdayFormat = new Intl.DateTimeFormat("en-GB", { weekday: "short" });
+const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const addDays = (date: Date, amount: number) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + amount);
 
-function EventPreview({ event }: { event: ApprovedMissionEvent }) {
-  return (
-    <span className={`block truncate rounded-sm border-l-2 px-2 py-1 text-xs font-bold ${event.conditional ? "border-harvest-500 bg-harvest-100/80 text-harvest-700" : "border-forest-500 bg-forest-50 text-forest-700"}`}>
-      <span className="mr-1 tabular-nums">{event.startTime}</span>{event.title}
-    </span>
-  );
+function monthBounds(month: Date) { return { from: new Date(month.getFullYear(), month.getMonth(), 1), to: new Date(month.getFullYear(), month.getMonth() + 1, 0) }; }
+function monthDays(month: Date) {
+  const { from, to } = monthBounds(month); const start = addDays(from, -from.getDay()); const end = addDays(to, 6 - to.getDay());
+  return Array.from({ length: Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1 }, (_, index) => addDays(start, index));
 }
 
-export function CalendarView({ data }: { data: CalendarPageData }) {
-  const [visibleMonth, setVisibleMonth] = useState(data.initialMonth);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const calendarDays = useMemo(() => buildMonthGrid(visibleMonth, data.referenceDate, data.events), [data.events, data.referenceDate, visibleMonth]);
-  const selectedDay = selectedDate ? calendarDays.find((day) => day.date === selectedDate) : undefined;
-  const monthLabel = visibleMonth === data.initialMonth ? data.monthLabel : formatMonthLabel(visibleMonth);
+export function CalendarView() {
+  const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [steps, setSteps] = useState<CalendarMissionStep[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
+  const bounds = useMemo(() => monthBounds(month), [month]); const days = useMemo(() => monthDays(month), [month]);
+  const load = useCallback(async () => { setLoading(true); setError(null); try { setSteps(await getCalendarMissionSteps(dateKey(bounds.from), dateKey(bounds.to))); } catch (reason) { setError(reason instanceof Error ? reason.message : "We could not load the calendar. Try again."); } finally { setLoading(false); } }, [bounds.from, bounds.to]);
+  useEffect(() => { void load(); }, [load]);
+  const eventsFor = (date: Date) => { const key = dateKey(date); return steps.filter((step) => step.startsOn.slice(0, 10) <= key && step.endsOn.slice(0, 10) >= key); };
+  return <div className="grid gap-6"><PageHeader eyebrow="Approved mission work" title="Calendar" description="Pending harvest and drying actions from every approved mission. Google Calendar sync is not active." actions={<div className="flex items-center gap-2"><Button type="button" variant="outline" size="icon" aria-label="Previous month" onClick={() => setMonth((value) => new Date(value.getFullYear(), value.getMonth() - 1, 1))} icon={<ChevronLeft aria-hidden="true" />} /><Button type="button" variant="outline" size="icon" aria-label="Next month" onClick={() => setMonth((value) => new Date(value.getFullYear(), value.getMonth() + 1, 1))} icon={<ChevronRight aria-hidden="true" />} /></div>} />
+    <section className="overflow-hidden rounded-lg border bg-card shadow-sm" aria-label={`${monthFormat.format(month)} calendar`}>
+      <h2 className="border-b px-5 py-4 text-xl font-extrabold">{monthFormat.format(month)}</h2>
+      {loading ? <div className="p-5"><LoadingShell label="Loading pending actions…" /></div> : null}
+      {error ? <Alert className="m-5" variant="danger" role="alert"><AlertTitle>Calendar unavailable</AlertTitle><AlertDescription>{error}</AlertDescription><Button className="mt-3" type="button" variant="outline" onClick={() => void load()}>Retry</Button></Alert> : null}
+      {!loading && !error && !steps.length ? <div className="p-5"><EmptyState icon={<Clock3 className="h-6 w-6" />} title="No pending actions this month" description="Approved harvest and drying steps will appear here when they are scheduled." /></div> : null}
+      {!loading && !error && steps.length ? <><div className="grid grid-cols-7 border-b bg-muted/35">{days.slice(0, 7).map((day) => <div key={day.getDay()} className="px-1 py-2 text-center text-xs font-bold uppercase tracking-wide text-muted-foreground sm:px-3">{weekdayFormat.format(day)}</div>)}</div><div className="grid grid-cols-7">{days.map((day) => <DayCell key={dateKey(day)} date={day} inMonth={day.getMonth() === month.getMonth()} events={eventsFor(day)} />)}</div></> : null}
+    </section>
+  </div>;
+}
 
-  useEffect(() => {
-    document.title = "Calendar | TUNAS";
-  }, []);
-
-  function moveMonth(offset: number) {
-    setSelectedDate(null);
-    setVisibleMonth((current) => shiftMonth(current, offset));
-  }
-
-  function returnToReferenceDate() {
-    setVisibleMonth(data.referenceDate.slice(0, 7));
-    setSelectedDate(data.referenceDate);
-  }
-
-  return (
-    <div className="grid gap-6">
-      <PageHeader
-        badges={<><Badge variant="info">Simulated Calendar</Badge><Badge variant="source">Placeholder data</Badge></>}
-        title={data.title}
-        description={data.description}
-        meta={<span className="flex flex-wrap items-center gap-x-5 gap-y-2"><span className="inline-flex items-center gap-2 font-semibold text-success-foreground"><ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />Only approved mission events appear</span><span>{data.freshness}</span></span>}
-      />
-
-      <section aria-labelledby="month-calendar-heading" className="grid gap-4">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <p className="text-sm font-semibold text-muted-foreground">Mission schedule</p>
-            <h2 id="month-calendar-heading" className="mt-1 text-2xl font-extrabold tracking-tight" aria-live="polite">{monthLabel}</h2>
-          </div>
-          <div className="flex items-center gap-2" aria-label="Calendar month navigation">
-            <Button type="button" size="icon" variant="outline" aria-label="Previous month" onClick={() => moveMonth(-1)}><ChevronLeft aria-hidden="true" /></Button>
-            <Button type="button" size="sm" variant="outline" onClick={returnToReferenceDate}>Today</Button>
-            <Button type="button" size="icon" variant="outline" aria-label="Next month" onClick={() => moveMonth(1)}><ChevronRight aria-hidden="true" /></Button>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto rounded-lg border bg-card shadow-farm">
-          <div className="min-w-[42rem]">
-            <div className="grid grid-cols-7 border-b bg-muted/45" aria-hidden="true">
-              {WEEKDAYS.map((weekday) => <div key={weekday} className="px-3 py-2.5 text-center text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">{weekday}</div>)}
-            </div>
-            <div className="grid grid-cols-7">
-              {calendarDays.map((day, index) => {
-                const previewEvents = day.events.slice(0, 2);
-                const moreCount = day.events.length - previewEvents.length;
-                const isLastColumn = index % 7 === 6;
-                const isLastRow = index >= calendarDays.length - 7;
-                return (
-                  <button
-                    key={day.date}
-                    type="button"
-                    aria-current={day.isReferenceDate ? "date" : undefined}
-                    aria-label={`${formatDateLabel(day.date)}. ${day.events.length} approved ${day.events.length === 1 ? "event" : "events"}. Open day details.`}
-                    onClick={() => setSelectedDate(day.date)}
-                    className={`group relative min-h-[8.5rem] min-w-0 p-2.5 text-left transition-colors duration-200 hover:bg-forest-50/55 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-ring/35 active:bg-forest-100/60 ${!isLastColumn ? "border-r" : ""} ${!isLastRow ? "border-b" : ""} ${day.isCurrentMonth ? "bg-card" : "bg-muted/20 text-muted-foreground"}`}
-                  >
-                    <span className={`absolute left-2.5 top-2.5 grid h-7 min-w-7 place-items-center rounded-md px-1 text-sm font-extrabold tabular-nums ${day.isReferenceDate ? "bg-forest-600 text-white" : "group-hover:text-forest-700"}`}>{day.dayNumber}</span>
-                    {day.isReferenceDate ? <span className="absolute right-2.5 top-3 text-[10px] font-bold uppercase tracking-wide text-forest-700">Today</span> : null}
-                    <span className="mt-9 grid gap-1">
-                      {previewEvents.map((event) => <EventPreview key={event.id} event={event} />)}
-                      {moreCount > 0 ? <span className="px-2 text-xs font-bold text-muted-foreground">+{moreCount} more</span> : null}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs font-semibold text-muted-foreground">
-          <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm bg-forest-500" />Scheduled</span>
-          <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm bg-harvest-500" />Conditional</span>
-          <span>Times use {data.timezone}.</span>
-        </div>
-      </section>
-
-      <Dialog open={selectedDate !== null} onOpenChange={(open) => { if (!open) setSelectedDate(null); }}>
-        <DialogContent className="sm:max-w-3xl">
-          {selectedDate ? (
-            <>
-              <DialogHeader>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="info"><CalendarDays aria-hidden="true" />Day schedule</Badge>
-                  <Badge variant="source">{selectedDay?.events.length ?? 0} approved {(selectedDay?.events.length ?? 0) === 1 ? "event" : "events"}</Badge>
-                </div>
-                <DialogTitle className="text-2xl">{formatDateLabel(selectedDate)}</DialogTitle>
-                <DialogDescription>Review the approved mission work for this date. Opening the calendar does not change or approve the plan.</DialogDescription>
-              </DialogHeader>
-
-              {selectedDay?.events.length ? (
-                <ol className="grid gap-3">
-                  {selectedDay.events.map((event) => (
-                    <li key={event.id} className="grid gap-3 rounded-lg bg-muted/35 p-4 sm:grid-cols-[5rem_minmax(0,1fr)]">
-                      <div>
-                        <p className="text-lg font-extrabold tabular-nums">{event.startTime}</p>
-                        <p className="text-xs font-semibold tabular-nums text-muted-foreground">to {event.endTime}</p>
-                      </div>
-                      <article className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2"><Badge variant="success"><CalendarCheck aria-hidden="true" />Approved</Badge><Badge variant={event.conditional ? "warning" : "info"}>{event.conditional ? "Conditional" : "Scheduled"}</Badge></div>
-                        <h3 className="mt-3 text-lg font-extrabold tracking-tight">{event.title}</h3>
-                        <p className="mt-1 leading-6 text-muted-foreground">{event.detail}</p>
-                        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 border-t pt-3 text-sm font-semibold text-muted-foreground">
-                          <span className="flex items-center gap-2"><Clock3 className="h-4 w-4" aria-hidden="true" />{event.startTime}–{event.endTime} {event.timezone}</span>
-                          {event.blockLabel ? <span className="flex items-center gap-2"><MapPin className="h-4 w-4" aria-hidden="true" />{event.blockLabel}</span> : null}
-                        </div>
-                        <div className="mt-3 flex flex-col justify-between gap-3 border-t pt-3 sm:flex-row sm:items-center">
-                          <div><p className="text-xs font-semibold text-muted-foreground">Linked approved mission</p><p className="font-bold">{event.missionTitle}</p><p className="text-xs text-muted-foreground">{event.approvalLabel}</p></div>
-                          <Button asChild size="sm" variant="outline" trailingIcon={<ArrowRight aria-hidden="true" />}><Link to={`/missions/${event.missionId}`}>Open mission</Link></Button>
-                        </div>
-                      </article>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <EmptyState icon={<CalendarDays className="h-6 w-6" />} title="No approved work scheduled" description="This date has no approved mission-linked events. Draft and unapproved work stays outside Calendar." />
-              )}
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+function DayCell({ date, inMonth, events }: { date: Date; inMonth: boolean; events: CalendarMissionStep[] }) {
+  return <div className={`min-h-28 border-b border-r p-1.5 sm:min-h-36 sm:p-2 ${inMonth ? "bg-card" : "bg-muted/25 text-muted-foreground"}`}><p className="mb-1 text-sm font-bold tabular-nums">{date.getDate()}</p><div className="grid gap-1">{events.map((event) => <Link key={event.missionStepId} to={`/missions/${event.missionId}`} className="grid gap-0.5 rounded border border-ai-100 bg-ai-50 p-1.5 text-left text-[11px] font-semibold leading-4 text-ai-700 hover:bg-ai-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 sm:text-xs"><span className="line-clamp-2">{event.title}</span><span className="font-medium text-ai-700/80">{event.windowStart && event.windowEnd ? `${event.windowStart}–${event.windowEnd}` : "All day"}</span><Badge className="min-h-0 px-1.5 py-0 text-[10px]" variant={event.status === "IN_PROGRESS" ? "info" : "ai"}>{event.status === "IN_PROGRESS" ? "In progress" : event.stage === "HARVESTING" ? "Harvest" : "Drying"}</Badge></Link>)}</div></div>;
 }

@@ -28,7 +28,7 @@ export function AuthView({ copy }: AuthViewProps) {
   }
 
   return (
-    <main className="auth-shell grid min-h-dvh place-items-center bg-background p-4 text-foreground sm:p-6">
+    <main className="auth-shell motion-enter grid min-h-dvh place-items-center bg-background p-4 text-foreground sm:p-6">
       <section className="auth-frame grid w-full max-w-6xl overflow-hidden rounded-2xl border bg-card shadow-farm md:grid-cols-[1.05fr_1fr]" aria-label="TUNAS sign in">
         <div className="auth-hero relative hidden min-h-[30rem] overflow-hidden md:block">
           <img

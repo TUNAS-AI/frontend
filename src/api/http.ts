@@ -1,7 +1,6 @@
 import { clearAuthSession, isSessionActive, readAuthSession } from "../features/auth/authSession.ts";
 
-const legacyApiUrl = "https://api.hijau-ai.web.id";
-const configuredApiUrl = import.meta.env?.VITE_TUNAS_API_URL ?? import.meta.env?.VITE_API_URL ?? legacyApiUrl;
+const configuredApiUrl = import.meta.env?.VITE_TUNAS_API_URL ?? "http://localhost:3000";
 
 export const API_URL = configuredApiUrl.replace(/\/$/, "");
 

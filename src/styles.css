@@ -4,6 +4,9 @@
 
 @layer base {
   :root {
+    --motion-enter-duration: 240ms;
+    --motion-exit-duration: 160ms;
+    --motion-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     --background: 47 36% 95%;
     --foreground: 129 15% 17%;
     --card: 0 0% 100%;
@@ -109,6 +112,115 @@
   min-height: 100dvh;
 }
 
+@keyframes tunas-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tunas-skeleton-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes tunas-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tunas-overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes tunas-dialog-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes tunas-dialog-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(8px); }
+}
+
+@keyframes tunas-modal-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.97); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes tunas-modal-out {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(0.97); }
+}
+
+.motion-enter {
+  animation: tunas-enter var(--motion-enter-duration) var(--motion-ease-out) both;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: hsl(var(--muted));
+}
+
+.skeleton::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(90deg, transparent, hsl(var(--card) / 0.5), transparent);
+  animation: tunas-skeleton-shimmer 1.4s var(--motion-ease-out) infinite;
+}
+
+[data-tunas-overlay] {
+  animation: tunas-overlay-out var(--motion-exit-duration) var(--motion-ease-out) both;
+}
+
+[data-tunas-overlay][data-state="open"] {
+  animation-name: tunas-overlay-in;
+  animation-duration: var(--motion-enter-duration);
+}
+
+[data-tunas-dialog-content],
+[data-tunas-alert-dialog-content] {
+  transform: translateY(8px);
+  animation: tunas-dialog-out var(--motion-exit-duration) var(--motion-ease-out) both;
+}
+
+[data-tunas-dialog-content][data-state="open"],
+[data-tunas-alert-dialog-content][data-state="open"] {
+  animation-name: tunas-dialog-in;
+  animation-duration: var(--motion-enter-duration);
+}
+
+@media (min-width: 640px) {
+  [data-tunas-dialog-content],
+  [data-tunas-alert-dialog-content] {
+    transform: translate(-50%, -50%) scale(0.97);
+    animation-name: tunas-modal-out;
+  }
+
+  [data-tunas-dialog-content][data-state="open"],
+  [data-tunas-alert-dialog-content][data-state="open"] {
+    animation-name: tunas-modal-in;
+  }
+}
+
+[data-sonner-toaster] {
+  transition-duration: var(--motion-enter-duration);
+  transition-timing-function: var(--motion-ease-out);
+}
+
+[data-sonner-toast] {
+  transition-duration: var(--motion-enter-duration), var(--motion-enter-duration), var(--motion-exit-duration), var(--motion-exit-duration);
+  transition-timing-function: var(--motion-ease-out);
+}
+
 .field-location-marker {
   background: transparent;
   border: 0;
@@ -134,5 +246,24 @@
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .motion-enter {
+    animation-name: none;
+    opacity: 1;
+  }
+
+  .skeleton::after { animation: none; }
+
+  [data-tunas-dialog-content],
+  [data-tunas-alert-dialog-content] {
+    transform: translateY(0);
+  }
+
+  @media (min-width: 640px) {
+    [data-tunas-dialog-content],
+    [data-tunas-alert-dialog-content] {
+      transform: translate(-50%, -50%);
+    }
   }
 }

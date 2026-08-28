@@ -105,7 +105,7 @@ export function OnboardingView({ copy, session, onComplete }: OnboardingViewProp
   }
 
   return (
-    <main className="min-h-dvh bg-background px-4 py-6 text-foreground sm:px-6 sm:py-10">
+    <main className="motion-enter min-h-dvh bg-background px-4 py-6 text-foreground sm:px-6 sm:py-10">
       <div className="mx-auto flex min-h-[calc(100dvh-3rem)] w-full max-w-3xl flex-col">
         <header className="mb-6 flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">

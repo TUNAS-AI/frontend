@@ -18,8 +18,9 @@ const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
+    data-tunas-overlay=""
     className={cn(
-      "fixed inset-0 z-50 bg-foreground/55 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-foreground/55 backdrop-blur-[2px]",
       className
     )}
     {...props}
@@ -35,8 +36,9 @@ const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      data-tunas-dialog-content=""
       className={cn(
-        "fixed inset-x-3 bottom-3 z-50 grid max-h-[calc(100dvh-1.5rem)] gap-5 overflow-y-auto rounded-lg border bg-card p-5 text-card-foreground shadow-lift duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:slide-in-from-bottom-4 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:w-[calc(100%-2rem)] sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%] sm:p-6 sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95",
+        "fixed inset-x-3 bottom-3 z-50 grid max-h-[calc(100dvh-1.5rem)] gap-5 overflow-y-auto rounded-lg border bg-card p-5 text-card-foreground shadow-lift sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:w-[calc(100%-2rem)] sm:max-w-lg sm:p-6",
         className
       )}
       {...props}

@@ -21,25 +21,21 @@ test("routes verified users without a farm to onboarding", async () => {
   const session = await completeGoogleCallback("#access_token=token-1&expires_in=3600", async (path, options) => {
     requests.push({ path, authorization: new Headers(options?.headers).get("authorization") });
     if (path === "/api/session") {
-      return new Response(JSON.stringify({ userId: "user-1", email: "sari@example.com", displayName: "Sari Tani" }), { status: 200 });
+      return new Response(JSON.stringify({ userId: "user-1", email: "sari@example.com", displayName: "Sari Tani", hasFarm: false }), { status: 200 });
     }
-    return new Response(JSON.stringify({ error: "Farm profile not found" }), { status: 404 });
+    throw new Error(`Unexpected request: ${path}`);
   });
 
   assert.equal(session.hasFarm, false);
   assert.equal(getPostAuthenticationPath(session), "/onboarding");
   assert.deepEqual(requests, [
     { path: "/api/session", authorization: "Bearer token-1" },
-    { path: "/api/farm", authorization: "Bearer token-1" },
   ]);
 });
 
 test("routes verified users with a farm to Today", async () => {
-  const session = await completeGoogleCallback("#access_token=token-1&expires_in=3600", async (path) => {
-    if (path === "/api/session") {
-      return new Response(JSON.stringify({ userId: "user-1", email: null, displayName: null }), { status: 200 });
-    }
-    return new Response(JSON.stringify({ farmId: "farm-1" }), { status: 200 });
+  const session = await completeGoogleCallback("#access_token=token-1&expires_in=3600", async () => {
+    return new Response(JSON.stringify({ userId: "user-1", email: null, displayName: null, hasFarm: true }), { status: 200 });
   });
 
   assert.equal(session.hasFarm, true);
@@ -54,11 +50,8 @@ test("refreshes a stored session from the backend before protecting routes", asy
     hasFarm: false,
     now: 1000,
   });
-  const refreshed = await refreshGoogleAuthSession(current, async (path) => {
-    if (path === "/api/session") {
-      return new Response(JSON.stringify({ userId: "user-1", email: "sari@example.com", displayName: "Sari Tani" }), { status: 200 });
-    }
-    return new Response(JSON.stringify({ farmId: "farm-1" }), { status: 200 });
+  const refreshed = await refreshGoogleAuthSession(current, async () => {
+    return new Response(JSON.stringify({ userId: "user-1", email: "sari@example.com", displayName: "Sari Tani", hasFarm: true }), { status: 200 });
   });
 
   assert.equal(refreshed.hasFarm, true);

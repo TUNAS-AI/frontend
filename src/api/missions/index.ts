@@ -1,43 +1,117 @@
-import type { MissionService } from "../../features/missions/types";
-import { MockMissionService } from "./mockSupport/MockMissionService";
-import { DEMO_CONTEXT, REFERENCE_INPUT } from "./mockSupport/demoMissionData";
-import { DEMO_MISSIONS_LIST_DATA } from "./mockSupport/demoMissionsListData";
-import { getDemoMissionDetail } from "./mockSupport/demoMissionDetailData";
+import { apiFetch } from "../http.ts";
 
-// Phase 4 deliberately selects the in-process demo. Any future transport must be implemented explicitly.
-const transport = import.meta.env.VITE_MISSION_TRANSPORT as string | undefined;
+export type MissionStatus = "ACTIVE" | "CLOSEOUT" | "COMPLETED";
+export type MissionStage = "WAITING" | "HARVESTING" | "DRYING" | "FINISHED" | "TO_REVIEW" | "COMPLETED";
+export type MissionStepStatus = "SCHEDULED" | "IN_PROGRESS" | "COMPLETED";
+export type MissionCloseoutInput = { actualHarvestKg: number; actualDriedKg: number; harvestedAreaHectares: number | null; buyerTargetMet: boolean; dryingCompleted: boolean; rejectedKg: number | null; notes: string | null };
+export type FactConfidence = "high" | "medium" | "low";
+export type FactProvenance = "FARMER_REPORTED" | "INFERRED";
+export type MissionReviewStatus = "confirmed" | "needs_clarification" | "missing";
 
-class UnconfiguredMissionService implements MissionService {
-  private readonly transportName: string | undefined;
+export type MissionMessage = { role: "farmer" | "assistant"; content: string };
+export type MissionFacts = {
+  fieldBlockId: string | null;
+  cropBatchIds: string[];
+  buyerCommitmentId: string | null;
+  buyerQuantityKg: number | null;
+  marketQuality: "Grade A" | "Grade B" | "Grade C" | null;
+  plannedHarvestKg: number | null;
+  plannedDriedKg: number | null;
+  deadline: string | null;
+  availableWorkerCount: number | null;
+  coveredDryingCapacityKg: number | null;
+  notes: string | null;
+  clarification: { key: string; question: string } | null;
+};
+export type MissionFactReview = { key: keyof Omit<MissionFacts, "clarification">; status: MissionReviewStatus; reason: string; provenance: FactProvenance; confidence: FactConfidence };
+export type MissionFactBlock = { key: string; value: unknown; provenance: FactProvenance; confidence: FactConfidence };
+export type MissionManualOptions = { timezone: string; fieldBlocks: Array<{ fieldBlockId: string; name: string }>; cropBatches: Array<{ cropBatchId: string; fieldBlockId: string; label: string }> };
+export type MissionPreviewCandidate = { previewId: string; messages: MissionMessage[]; facts: MissionFacts; review: MissionFactReview[]; blocks: MissionFactBlock[]; manualOptions?: MissionManualOptions };
+export type MissionPreviewInterpretation = MissionPreviewCandidate;
+export type MissionPlanActivity = { title: string; description: string; scheduleType: "DAILY_WINDOW" | "DATE_RANGE"; startsOn: string; endsOn: string; windowStart: string | null; windowEnd: string | null; timezone: string; isConditional: boolean; stage: "HARVESTING" | "DRYING"; targetHarvestKg?: number | null };
+export type MissionPreviewPlan = { planId: string; name: string; summary: string; recommended: boolean; assumptions: string[]; risks: Record<string, string>; dryingEstimateDays: number; dryingEstimateReason: string; activities: MissionPlanActivity[] };
+export type MissionPlanPreview = { missionId: string; plans: MissionPreviewPlan[]; previewToken: string; expiresInSeconds: number };
 
-  constructor(transportName: string | undefined) {
-    this.transportName = transportName;
-  }
+export type MissionStep = {
+  missionStepId: string;
+  sequence: number;
+  title: string;
+  description: string;
+  startsOn: string;
+  endsOn: string;
+  windowStart: string | null;
+  windowEnd: string | null;
+  timezone: string;
+  isConditional: boolean;
+  stage: "HARVESTING" | "DRYING";
+  status: MissionStepStatus;
+  targetHarvestKg?: number | null;
+};
 
-  private fail(): Promise<never> {
-    return Promise.reject(
-      new Error(
-        `Mission demo is not configured. Set VITE_MISSION_TRANSPORT=demo before using the mission flow${this.transportName ? ` (received: ${this.transportName})` : ""}.`,
-      ),
-    );
-  }
+export type CalendarMissionStep = MissionStep & { missionId: string; mission: { originalMessage: string } };
 
-  createDraft() { return this.fail(); }
-  interpret() { return this.fail(); }
-  checkpoint() { return this.fail(); }
-  plan() { return this.fail(); }
-  recalculate() { return this.fail(); }
-  preview() { return this.fail(); }
-  submit() { return this.fail(); }
+export type MissionPlan = {
+  planId: string;
+  name: string;
+  summary: string;
+  recommended: boolean;
+  assumptions: string[];
+  risks: Record<string, string>;
+  dryingEstimateDays: number;
+  dryingEstimateReason: string;
+};
+
+export type MissionConstraint = {
+  missionConstraintId: string;
+  key: string;
+  value: unknown;
+  provenance: "FARMER_REPORTED" | "INFERRED";
+  confidence: "high" | "medium" | "low";
+};
+
+export type MissionListItem = {
+  missionId: string;
+  fieldBlockId: string | null;
+  status: MissionStatus;
+  stage: MissionStage;
+  originalMessage: string;
+  createdAt: string;
+  cropBatches: Array<{ cropBatchId: string; cropBatch: { cropBatchId: string; variety: string | null } }>;
+  missionSteps: MissionStep[];
+};
+
+export type Mission = MissionListItem & {
+  notes: string | null;
+  approvedPlanId: string | null;
+  updatedAt: string;
+  constraints: MissionConstraint[];
+  planningRuns: Array<{ plans: MissionPlan[] }>;
+  closeout: { plannedHarvestKg: number; plannedDriedKg: number; actualHarvestKg: number; actualDriedKg: number; harvestedAreaHectares: number | null; buyerTargetMet: boolean; dryingCompleted: boolean; rejectedKg: number | null; notes: string | null; summary: { summary: string; lessons: string[] } | null } | null;
+};
+
+type ApiErrorBody = { error?: string };
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await apiFetch(path, options);
+  if (response.ok) return response.json() as Promise<T>;
+  const body = await response.json().catch((): ApiErrorBody => ({}));
+  throw new Error(body.error || "We could not load missions. Try again.");
 }
 
-function createMissionApi(): MissionService {
-  if (transport === "demo") return new MockMissionService();
-  return new UnconfiguredMissionService(transport);
+export function getMissions() { return request<MissionListItem[]>("/api/missions"); }
+export function getCalendarMissionSteps(from: string, to: string) { return request<CalendarMissionStep[]>(`/api/missions/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`); }
+export function getMission(id: string) { return request<Mission>(`/api/missions/${id}`); }
+export function deleteMission(id: string) { return request<{ missionId: string }>(`/api/missions/${id}`, { method: "DELETE" }); }
+export function advanceMissionStage(id: string, stage: "HARVESTING" | "DRYING" | "FINISHED" | "TO_REVIEW") { return request<Mission>(`/api/missions/${id}/stage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stage }) }); }
+export function completeMissionStep(id: string, stepId: string) { return request<Mission>(`/api/missions/${id}/steps/${stepId}/status`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "COMPLETED" }) }); }
+export function saveMissionCloseout(id: string, input: MissionCloseoutInput) { return request<Mission>(`/api/missions/${id}/closeout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }); }
+export function confirmMissionCloseout(id: string) { return request<Mission>(`/api/missions/${id}/closeout/confirm`, { method: "POST" }); }
+export function interpretMissionPreview(input: { previewId?: string; messages?: MissionMessage[]; message: string; facts?: MissionFacts }) {
+  return request<MissionPreviewInterpretation>("/api/mission-previews/interpret", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
 }
-
-export const missionApi = createMissionApi();
-export const missionDemoContext = DEMO_CONTEXT;
-export const missionReferenceInput = REFERENCE_INPUT;
-export const missionsListPlaceholderData = DEMO_MISSIONS_LIST_DATA;
-export { getDemoMissionDetail };
+export function planMissionPreview(candidate: MissionPreviewCandidate) {
+  return request<MissionPlanPreview>("/api/mission-previews/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ candidate }) });
+}
+export function confirmMissionPreview(previewToken: string, planId: string) {
+  return request<Mission>("/api/missions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ previewToken, planId }) });
+}

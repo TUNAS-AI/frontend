@@ -1,19 +1,8 @@
-import { todayPlaceholderData } from "@/api/today";
 import { AppShell } from "@/components/app/AppShell";
 import { productNavigationItems } from "@/components/app/productNavigation";
-import { MissionContext } from "@/features/missions/components/MissionContext";
-import { TodayAssistant } from "@/features/today/TodayAssistant";
-import { TodayView } from "@/features/today/TodayView";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export function TodayRoute() {
-  return (
-    <AppShell
-      activeItem="today"
-      assistant={<TodayAssistant data={todayPlaceholderData} />}
-      context={<MissionContext context={todayPlaceholderData.context} />}
-      navigationItems={productNavigationItems}
-    >
-      <TodayView data={todayPlaceholderData} />
-    </AppShell>
-  );
+  return <AppShell activeItem="today" navigationItems={productNavigationItems}><div className="grid gap-5"><PageHeader eyebrow="Farm workspace" title="Today" description="Your farm profile is ready. Operational mission data will return after backend integration testing." /><EmptyState title="No operational data yet" description="Use Farm to review or update your farm details." /></div></AppShell>;
 }
