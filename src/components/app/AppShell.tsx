@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useAuthSession } from "@/features/auth/useAuthSession";
 import { cn } from "@/utils/cn";
 import { FarmSnapshotPanel } from "@/features/farm/components/FarmSnapshotPanel";
+import { TunasAssistant } from "./TunasAssistant";
 
 type NavigationIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -93,7 +94,7 @@ export function AppShell<Id extends string>({
         Skip to main content
       </a>
 
-      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-3 pb-36 pt-3 sm:px-5 md:gap-6 md:pb-8 md:pt-5 lg:grid-cols-[220px_minmax(0,1fr)_320px] lg:px-6 lg:pt-6">
+      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-3 pb-36 pt-3 sm:px-5 md:gap-6 md:pb-8 md:pt-5 lg:grid-cols-[264px_minmax(0,1fr)_264px] lg:px-6 lg:pt-6">
         <aside className="hidden lg:block">
           <div className="sticky top-6 grid gap-5">
             <FarmSnapshotPanel
@@ -148,6 +149,7 @@ export function AppShell<Id extends string>({
         onResetOnboarding={() => setResetOpen(true)}
       />
       {assistant}
+      <TunasAssistant />
       </div>
       <AlertDialogContent>
         <AlertDialogHeader>

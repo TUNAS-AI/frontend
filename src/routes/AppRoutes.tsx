@@ -8,6 +8,7 @@ const FarmRoute = lazy(() => import("./FarmRoute").then(({ FarmRoute: Route }) =
 const MissionsRoute = lazy(() => import("./MissionsRoute").then(({ MissionsRoute: Route }) => ({ default: Route })));
 const NewMissionRoute = lazy(() => import("./NewMissionRoute").then(({ NewMissionRoute: Route }) => ({ default: Route })));
 const MissionDetailRoute = lazy(() => import("./MissionDetailRoute").then(({ MissionDetailRoute: Route }) => ({ default: Route })));
+const EditMissionRoute = lazy(() => import("./EditMissionRoute").then(({ EditMissionRoute: Route }) => ({ default: Route })));
 const NotFoundRoute = lazy(() => import("./NotFoundRoute").then(({ NotFoundRoute: Route }) => ({ default: Route })));
 const TodayRoute = lazy(() => import("./TodayRoute").then(({ TodayRoute: Route }) => ({ default: Route })));
 const CalendarRoute = lazy(() => import("./CalendarRoute").then(({ CalendarRoute: Route }) => ({ default: Route })));
@@ -32,6 +33,7 @@ export function AppRoutes() {
           <Route path="/calendar" element={<CalendarRoute />} />
           <Route path="/missions" element={<MissionsRoute />} />
           <Route path="/missions/new" element={<NewMissionRoute />} />
+          <Route path="/missions/:missionId/edit" element={<EditMissionRoute />} />
           <Route path="/missions/:missionId" element={<MissionDetailRoute />} />
           <Route path="/farm" element={<FarmRoute />} />
           <Route path="*" element={<NotFoundRoute />} />

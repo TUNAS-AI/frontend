@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { advanceMissionStage, completeMissionStep, confirmMissionCloseout, confirmMissionPreview, deleteMission, getMission, getMissions, interpretMissionPreview, planMissionPreview, saveMissionCloseout } from "../src/api/missions/index.ts";
+import { advanceMissionStage, completeMissionStep, confirmMissionCloseout, confirmMissionPreview, confirmMissionReplan, deleteMission, getMission, getMissionReplanDraft, getMissions, interpretMissionPreview, interpretMissionReplan, planMissionPreview, planMissionReplan, saveMissionCloseout } from "../src/api/missions/index.ts";
 
 test("loads the caller's mission list and an individual mission from the backend", async () => {
   const originalFetch = globalThis.fetch;
@@ -55,4 +55,19 @@ test("sends execution and closeout changes to the mission backend", async () => 
   assert.deepEqual(requests.map((request) => [new URL(request.url).pathname, request.init?.method]), [["/api/missions/mission-1/stage", "POST"], ["/api/missions/mission-1/steps/step-1/status", "POST"], ["/api/missions/mission-1/closeout", "POST"], ["/api/missions/mission-1/closeout/confirm", "POST"]]);
   assert.deepEqual(JSON.parse(String(requests[1].init?.body)), { status: "COMPLETED" });
   assert.deepEqual(JSON.parse(String(requests[2].init?.body)), { actualHarvestKg: 80, actualDriedKg: 70, harvestedAreaHectares: null, buyerTargetMet: true, dryingCompleted: true, rejectedKg: 2, notes: "Rain delayed drying." });
+});
+
+test("loads and confirms a mission replacement plan", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; init?: RequestInit }> = [];
+  globalThis.fetch = async (input, init) => { requests.push({ url: String(input), init }); return new Response(JSON.stringify({ previewId: "preview-1", plans: [], previewToken: "token", expiresInSeconds: 1800 }), { status: 200, headers: { "Content-Type": "application/json" } }); };
+  const candidate = { previewId: "preview-1", messages: [{ role: "farmer" as const, content: "Rain changed the plan" }], facts: { fieldBlockId: null, cropBatchIds: [], buyerCommitmentId: null, buyerQuantityKg: null, marketQuality: null, plannedHarvestKg: null, plannedDriedKg: null, deadline: null, availableWorkerCount: null, coveredDryingCapacityKg: null, notes: null, clarification: null }, review: [], blocks: [] };
+  try {
+    await getMissionReplanDraft("mission-1");
+    await interpretMissionReplan("mission-1", { message: "Rain changed the plan" });
+    await planMissionReplan("mission-1", candidate);
+    await confirmMissionReplan("mission-1", "token", "plan-1", "DRYING");
+  } finally { globalThis.fetch = originalFetch; }
+  assert.deepEqual(requests.map((request) => [new URL(request.url).pathname, request.init?.method]), [["/api/missions/mission-1/replan", undefined], ["/api/missions/mission-1/replan/interpret", "POST"], ["/api/missions/mission-1/replan/plan", "POST"], ["/api/missions/mission-1/replan/confirm", "POST"]]);
+  assert.deepEqual(JSON.parse(String(requests[3].init?.body)), { previewToken: "token", planId: "plan-1", stage: "DRYING" });
 });

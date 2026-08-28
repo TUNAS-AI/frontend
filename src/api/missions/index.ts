@@ -84,6 +84,7 @@ export type Mission = MissionListItem & {
   notes: string | null;
   approvedPlanId: string | null;
   updatedAt: string;
+  messages: MissionMessage[];
   constraints: MissionConstraint[];
   planningRuns: Array<{ plans: MissionPlan[] }>;
   closeout: { plannedHarvestKg: number; plannedDriedKg: number; actualHarvestKg: number; actualDriedKg: number; harvestedAreaHectares: number | null; buyerTargetMet: boolean; dryingCompleted: boolean; rejectedKg: number | null; notes: string | null; summary: { summary: string; lessons: string[] } | null } | null;
@@ -114,4 +115,14 @@ export function planMissionPreview(candidate: MissionPreviewCandidate) {
 }
 export function confirmMissionPreview(previewToken: string, planId: string) {
   return request<Mission>("/api/missions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ previewToken, planId }) });
+}
+export function getMissionReplanDraft(id: string) { return request<MissionPreviewCandidate>(`/api/missions/${id}/replan`); }
+export function interpretMissionReplan(id: string, input: { previewId?: string; messages?: MissionMessage[]; message: string; facts?: MissionFacts }) {
+  return request<MissionPreviewInterpretation>(`/api/missions/${id}/replan/interpret`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+}
+export function planMissionReplan(id: string, candidate: MissionPreviewCandidate) {
+  return request<MissionPlanPreview>(`/api/missions/${id}/replan/plan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ candidate }) });
+}
+export function confirmMissionReplan(id: string, previewToken: string, planId: string, stage: "WAITING" | "HARVESTING" | "DRYING") {
+  return request<Mission>(`/api/missions/${id}/replan/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ previewToken, planId, stage }) });
 }

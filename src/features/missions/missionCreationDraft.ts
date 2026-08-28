@@ -25,3 +25,15 @@ export function restoreMissionCreationDraft(): MissionCreationDraft {
 
 export function persistMissionCreationDraft(draft: MissionCreationDraft) { try { storage()?.setItem(key, JSON.stringify(draft)); } catch { /* Draft recovery is best effort. */ } }
 export function clearMissionCreationDraft() { try { storage()?.removeItem(key); } catch { /* Storage can be unavailable. */ } }
+
+function editKey(missionId: string) { return `tunas:mission-edit-draft:v1:${missionId}`; }
+export function restoreMissionEditDraft(missionId: string): MissionCreationDraft {
+  try {
+    const value = storage()?.getItem(editKey(missionId));
+    if (!value) return { candidate: null, planPreview: null, selectedPlanId: null };
+    const parsed = JSON.parse(value) as MissionCreationDraft;
+    return { candidate: restoreCandidate(parsed.candidate ?? null), planPreview: parsed.planPreview ?? null, selectedPlanId: parsed.selectedPlanId ?? null };
+  } catch { storage()?.removeItem(editKey(missionId)); return { candidate: null, planPreview: null, selectedPlanId: null }; }
+}
+export function persistMissionEditDraft(missionId: string, draft: MissionCreationDraft) { try { storage()?.setItem(editKey(missionId), JSON.stringify(draft)); } catch { /* Draft recovery is best effort. */ } }
+export function clearMissionEditDraft(missionId: string) { try { storage()?.removeItem(editKey(missionId)); } catch { /* Storage can be unavailable. */ } }

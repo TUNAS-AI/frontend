@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, CircleAlert, FileText, Send, Sparkles, Trash2 } from "lucide-react";
-import { useNavigate } from "react-router";
-import { confirmMissionPreview, interpretMissionPreview, planMissionPreview, type MissionFactReview, type MissionPreviewCandidate, type MissionPreviewPlan } from "@/api/missions";
+import { useLocation, useNavigate } from "react-router";
+import { confirmMissionPreview, confirmMissionReplan, getMissionReplanDraft, interpretMissionPreview, interpretMissionReplan, planMissionPreview, planMissionReplan, type MissionFactReview, type MissionPreviewCandidate, type MissionPreviewPlan } from "@/api/missions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/Alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/Badge";
@@ -13,7 +13,7 @@ import { FieldGroup, Select } from "@/components/ui/FieldControl";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "./MissionsView";
-import { clearMissionCreationDraft, persistMissionCreationDraft, restoreMissionCreationDraft } from "./missionCreationDraft";
+import { clearMissionCreationDraft, clearMissionEditDraft, persistMissionCreationDraft, persistMissionEditDraft, restoreMissionCreationDraft, restoreMissionEditDraft } from "./missionCreationDraft";
 
 const requiredKeys = ["fieldBlockId", "cropBatchIds", "buyerQuantityKg", "marketQuality", "plannedHarvestKg", "plannedDriedKg", "deadline"] as const;
 type EditableFactKey = typeof requiredKeys[number] | "notes";
@@ -24,9 +24,12 @@ function hasValue(value: unknown) { return value !== null && value !== "" && val
 function isConfirmed(candidate: MissionPreviewCandidate) { return requiredKeys.every((key) => hasValue(candidate.facts[key])); }
 function promptFor(candidate: MissionPreviewCandidate | null) { return candidate?.facts.clarification?.question ?? "Describe the harvest goal, field, target amount, market quality, and deadline."; }
 
-export function MissionCreationView() {
+export function MissionCreationView({ missionId }: { missionId?: string }) {
   const navigate = useNavigate();
-  const restored = useMemo(restoreMissionCreationDraft, []);
+  const location = useLocation();
+  const tunas = location.state as { tunasDraft?: string; tunasAutoGenerate?: boolean } | null;
+  const tunasStarted = useRef(false);
+  const restored = useMemo(() => missionId ? restoreMissionEditDraft(missionId) : restoreMissionCreationDraft(), [missionId]);
   const [candidate, setCandidate] = useState<MissionPreviewCandidate | null>(restored.candidate);
   const [planPreview, setPlanPreview] = useState(restored.planPreview);
   const [selectedPlanId, setSelectedPlanId] = useState(restored.selectedPlanId);
@@ -35,8 +38,34 @@ export function MissionCreationView() {
   const [working, setWorking] = useState<"interpret" | "plan" | "confirm" | null>(null);
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
+  const [replacementStage, setReplacementStage] = useState<"WAITING" | "HARVESTING" | "DRYING">("WAITING");
+  const [loadingDraft, setLoadingDraft] = useState(Boolean(missionId && !restored.candidate));
 
-  useEffect(() => { persistMissionCreationDraft({ candidate, planPreview, selectedPlanId }); }, [candidate, planPreview, selectedPlanId]);
+  useEffect(() => { if (missionId) persistMissionEditDraft(missionId, { candidate, planPreview, selectedPlanId }); else persistMissionCreationDraft({ candidate, planPreview, selectedPlanId }); }, [candidate, missionId, planPreview, selectedPlanId]);
+  useEffect(() => {
+    if (!missionId || restored.candidate) return;
+    let live = true;
+    void getMissionReplanDraft(missionId).then((draft) => { if (live) setCandidate(draft); }).catch((reason) => { if (live) setError(reason instanceof Error ? reason.message : "We could not load this mission for editing."); }).finally(() => { if (live) setLoadingDraft(false); });
+    return () => { live = false; };
+  }, [missionId, restored.candidate]);
+  useEffect(() => {
+    if (!missionId || !candidate || !tunas?.tunasDraft || tunasStarted.current || working !== null) return;
+    tunasStarted.current = true;
+    setMessage(tunas.tunasDraft);
+    void (async () => {
+      setError(null); setWorking("interpret");
+      try {
+        const result = await interpretMissionReplan(missionId, { previewId: candidate.previewId, messages: candidate.messages, facts: candidate.facts, message: tunas.tunasDraft! });
+        setCandidate(result); setPlanPreview(null); setSelectedPlanId(null);
+        if (tunas.tunasAutoGenerate && isConfirmed(result)) {
+          setWorking("plan");
+          const preview = await planMissionReplan(missionId, result);
+          setPlanPreview(preview); setSelectedPlanId(preview.plans.find((plan) => plan.recommended)?.planId ?? null);
+        }
+      } catch (reason) { setError(reason instanceof Error ? reason.message : "Tunas could not prepare this weather replan. Try again."); }
+      finally { setWorking(null); navigate(location.pathname, { replace: true, state: null }); }
+    })();
+  }, [candidate, location.pathname, missionId, navigate, tunas?.tunasAutoGenerate, tunas?.tunasDraft, working]);
 
   const selectedPlan = planPreview?.plans.find((plan) => plan.planId === selectedPlanId) ?? null;
   const complete = candidate ? isConfirmed(candidate) : false;
@@ -47,7 +76,8 @@ export function MissionCreationView() {
     if (!text) { setError("Describe the mission or answer TUNAS’s clarification before continuing."); return; }
     setError(null); setWorking("interpret");
     try {
-      const result = await interpretMissionPreview({ previewId: candidate?.previewId, messages: candidate?.messages, facts: candidate?.facts, message: text });
+      const input = { previewId: candidate?.previewId, messages: candidate?.messages, facts: candidate?.facts, message: text };
+      const result = missionId ? await interpretMissionReplan(missionId, input) : await interpretMissionPreview(input);
       setCandidate(result); setPlanPreview(null); setSelectedPlanId(null); setMessage("");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "TUNAS could not review this request. Try again."); } finally { setWorking(null); }
   }
@@ -56,7 +86,7 @@ export function MissionCreationView() {
     if (!candidate) return;
     setError(null); setWorking("plan");
     try {
-      const result = await planMissionPreview(candidate);
+      const result = missionId ? await planMissionReplan(missionId, candidate) : await planMissionPreview(candidate);
       setPlanPreview(result); setSelectedPlanId(result.plans.find((plan) => plan.recommended)?.planId ?? null);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "TUNAS could not generate plans. Try again."); } finally { setWorking(null); }
   }
@@ -65,8 +95,8 @@ export function MissionCreationView() {
     if (!planPreview || !selectedPlan) return;
     setError(null); setWorking("confirm");
     try {
-      const mission = await confirmMissionPreview(planPreview.previewToken, selectedPlan.planId);
-      clearMissionCreationDraft(); navigate(`/missions/${mission.missionId}`);
+      const mission = missionId ? await confirmMissionReplan(missionId, planPreview.previewToken, selectedPlan.planId, replacementStage) : await confirmMissionPreview(planPreview.previewToken, selectedPlan.planId);
+      if (missionId) clearMissionEditDraft(missionId); else clearMissionCreationDraft(); navigate(`/missions/${mission.missionId}`);
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "The selected plan could not be approved.";
       setError(message);
@@ -76,7 +106,7 @@ export function MissionCreationView() {
   }
 
   function revise() { setPlanPreview(null); setSelectedPlanId(null); setError(null); }
-  function discard() { clearMissionCreationDraft(); navigate("/missions"); }
+  function discard() { if (missionId) { clearMissionEditDraft(missionId); navigate(`/missions/${missionId}`); } else { clearMissionCreationDraft(); navigate("/missions"); } }
   function updateFact(key: EditableFactKey, value: MissionPreviewCandidate["facts"][EditableFactKey]) {
     setCandidate((current) => {
       if (!current) return current;
@@ -90,15 +120,16 @@ export function MissionCreationView() {
   }
 
   return <div className="grid gap-6">
-    <PageHeader eyebrow="Harvest and drying work" title="New mission" description="Tell TUNAS what you need to harvest. It will ask only for the details needed to make a safe plan." actions={<Button type="button" variant="outline" onClick={() => setDiscardOpen(true)} icon={<Trash2 aria-hidden="true" />}>Discard draft</Button>} />
+    <PageHeader eyebrow="Harvest and drying work" title={missionId ? "Edit mission" : "New mission"} description={missionId ? "Describe what changed or what went wrong. TUNAS will update the mission details and offer a replacement plan." : "Tell TUNAS what you need to harvest. It will ask only for the details needed to make a safe plan."} actions={<Button type="button" variant="outline" className="border-white/35 bg-white/10 text-white hover:bg-white/20 hover:text-white focus-visible:ring-white/60 focus-visible:ring-offset-primary" onClick={() => setDiscardOpen(true)} icon={<Trash2 aria-hidden="true" />}>Discard draft</Button>} />
     {error ? <Alert variant="danger" role="alert"><CircleAlert aria-hidden="true" /><AlertTitle>Mission needs attention</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
-    {!planPreview ? <>
+    {loadingDraft ? <Card><CardContent className="py-6 text-sm text-muted-foreground">Loading mission details…</CardContent></Card> : null}
+    {!loadingDraft && !planPreview ? <>
       {candidate ? <FactSummary candidate={candidate} missing={missing} onChange={updateFact} /> : null}
       <MissionPromptCard candidate={candidate} message={message} working={working} onMessage={setMessage} onInterpret={() => void interpret()} />
       {candidate && complete ? <Card variant="success"><CardHeader><CardTitle>Ready to generate plans</CardTitle><CardDescription>Your required mission details are confirmed. TUNAS will use the selected field, farm context, and current weather forecast to make options.</CardDescription></CardHeader><CardFooter className="justify-end"><Button type="button" size="lg" onClick={() => void generatePlans()} isLoading={working === "plan"} loadingLabel="Generating plans" icon={<Sparkles aria-hidden="true" />}>Generate plan options</Button></CardFooter></Card> : null}
-    </> : <PlanReview plans={planPreview.plans} selectedPlan={selectedPlan} onSelect={setSelectedPlanId} onRevise={revise} onApprove={() => setApprovalOpen(true)} />}
-    <AlertDialog open={approvalOpen} onOpenChange={setApprovalOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Approve this mission plan?</AlertDialogTitle><AlertDialogDescription>{selectedPlan ? `${selectedPlan.name} will become your active TUNAS schedule. This does not create Google Calendar events.` : "Select a plan before approval."}</AlertDialogDescription></AlertDialogHeader>{selectedPlan ? <div className="rounded-md border bg-muted/30 p-3 text-sm leading-6"><strong>{selectedPlan.name}</strong><br />{selectedPlan.summary}</div> : null}<AlertDialogFooter><AlertDialogCancel disabled={working === "confirm"}>Keep reviewing</AlertDialogCancel><AlertDialogAction disabled={!selectedPlan || working === "confirm"} onClick={(event) => { event.preventDefault(); void confirm(); }}>{working === "confirm" ? "Approving…" : "Approve plan"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-    <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Discard this mission draft?</AlertDialogTitle><AlertDialogDescription>Your unapproved request and plan preview will be removed from this browser session.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Keep drafting</AlertDialogCancel><AlertDialogAction onClick={discard}>Discard draft</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    </> : !loadingDraft && planPreview ? <PlanReview plans={planPreview.plans} selectedPlan={selectedPlan} onSelect={setSelectedPlanId} onRevise={revise} onApprove={() => setApprovalOpen(true)} /> : null}
+    <AlertDialog open={approvalOpen} onOpenChange={setApprovalOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{missionId ? "Approve replacement plan?" : "Approve this mission plan?"}</AlertDialogTitle><AlertDialogDescription>{selectedPlan ? `${selectedPlan.name} will become your active TUNAS schedule. This does not create Google Calendar events.` : "Select a plan before approval."}</AlertDialogDescription></AlertDialogHeader>{selectedPlan ? <div className="grid gap-3 rounded-md border bg-muted/30 p-3 text-sm leading-6"><div><strong>{selectedPlan.name}</strong><br />{selectedPlan.summary}</div>{missionId ? <FieldGroup label="Current mission stage" required helper="Replacement tasks start scheduled; choose where you are now."><Select value={replacementStage} onChange={(event) => setReplacementStage(event.target.value as "WAITING" | "HARVESTING" | "DRYING")}><option value="WAITING">Waiting to start</option><option value="HARVESTING">Harvesting</option><option value="DRYING">Drying</option></Select></FieldGroup> : null}</div> : null}<AlertDialogFooter><AlertDialogCancel disabled={working === "confirm"}>Keep reviewing</AlertDialogCancel><AlertDialogAction disabled={!selectedPlan || working === "confirm"} onClick={(event) => { event.preventDefault(); void confirm(); }}>{working === "confirm" ? "Approving…" : missionId ? "Replace plan" : "Approve plan"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Discard this mission draft?</AlertDialogTitle><AlertDialogDescription>Your unapproved request and plan preview will be removed from this browser session. The active mission will stay unchanged.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Keep drafting</AlertDialogCancel><AlertDialogAction onClick={discard}>Discard draft</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </div>;
 }
 

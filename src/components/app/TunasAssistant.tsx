@@ -1,116 +1,26 @@
-import { useEffect, useId, useRef, useState } from "react";
-import { Bot, Send, Sparkles, X } from "lucide-react";
-import { Badge, type BadgeProps } from "@/components/ui/Badge";
+import { useEffect, useRef, useState } from "react";
+import { Bot, ClipboardList, Sparkles, X } from "lucide-react";
+import { actOnTunasMessage, checkTunasForecast, createTunasTestAlert, getTunasMessages, markTunasRead, type TunasAction, type TunasMessage, type TunasState } from "@/api/tunas";
 import { Button } from "@/components/ui/Button";
 import { ChatBubble } from "@/components/ui/ChatBubble";
-import { Textarea } from "@/components/ui/textarea";
-import { ASSISTANT_PREFILL_EVENT, LEGACY_ASSISTANT_PREFILL_EVENT } from "./assistantControl";
+import { Link, useNavigate } from "react-router";
 
-type AssistantMessage = {
-  id: number;
-  role: "assistant" | "user";
-  text: string;
-};
+const empty: TunasState = { messages: [], unreadCount: 0 };
 
-type TunasAssistantProps = {
-  contextLabel: string;
-  contextTone?: BadgeProps["variant"];
-  starterMessage: string;
-  subtitle?: string;
-  inputPlaceholder?: string;
-  onAsk: (question: string) => Promise<string> | string;
-};
-
-export function TunasAssistant({
-  contextLabel,
-  contextTone = "source",
-  starterMessage,
-  subtitle = "Questions, explanations and revisions",
-  inputPlaceholder = "Ask TUNAS...",
-  onAsk,
-}: TunasAssistantProps) {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [messages, setMessages] = useState<AssistantMessage[]>([{ id: 1, role: "assistant", text: starterMessage }]);
-  const [pending, setPending] = useState(false);
-  const nextId = useRef(2);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+export function TunasAssistant() {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false); const [state, setState] = useState<TunasState>(empty); const [loading, setLoading] = useState(true); const [working, setWorking] = useState<string | null>(null); const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputId = useId();
-
-  useEffect(() => {
-    if (!open) return;
-    inputRef.current?.focus();
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [open, messages, pending]);
-
-  useEffect(() => {
-    function handlePrefill(event: Event) {
-      const draftEvent = event as CustomEvent<string>;
-      setDraft(draftEvent.detail);
-      setOpen(true);
-    }
-    window.addEventListener(ASSISTANT_PREFILL_EVENT, handlePrefill);
-    window.addEventListener(LEGACY_ASSISTANT_PREFILL_EVENT, handlePrefill);
-    return () => {
-      window.removeEventListener(ASSISTANT_PREFILL_EVENT, handlePrefill);
-      window.removeEventListener(LEGACY_ASSISTANT_PREFILL_EVENT, handlePrefill);
-    };
-  }, []);
-
-  function addMessage(role: AssistantMessage["role"], text: string) {
-    setMessages((current) => [...current, { id: nextId.current++, role, text }]);
-  }
-
-  async function sendMessage() {
-    const question = draft.trim();
-    if (!question || pending) return;
-    setDraft("");
-    addMessage("user", question);
-    setPending(true);
-    try {
-      addMessage("assistant", await onAsk(question));
-    } catch {
-      addMessage("assistant", "I could not answer that right now. Your page data and any structured mission state remain unchanged.");
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] right-3 z-40 sm:bottom-5 sm:right-5 lg:bottom-6 lg:right-6">
-      {open ? (
-        <section
-          aria-label="TUNAS assistant"
-          className="flex h-[min(620px,calc(100dvh-7rem))] w-[min(390px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border bg-card shadow-lift"
-          onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); }}
-        >
-          <header className="flex items-center justify-between gap-3 border-b bg-ai-700 px-4 py-3 text-white">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/15"><Bot className="h-5 w-5" aria-hidden="true" /></span>
-              <div className="min-w-0"><h2 className="truncate font-bold">TUNAS assistant</h2><p className="truncate text-xs text-white/80">{subtitle}</p></div>
-            </div>
-            <Button type="button" size="icon" variant="ghost" className="border-transparent text-white hover:bg-white/15 hover:text-white" aria-label="Close TUNAS assistant" onClick={() => setOpen(false)}><X aria-hidden="true" /></Button>
-          </header>
-
-          <div className="border-b bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
-            <Badge variant={contextTone}>{contextLabel}</Badge>
-          </div>
-
-          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4" aria-live="polite" aria-busy={pending}>
-            {messages.map((message) => <ChatBubble key={message.id} variant={message.role}>{message.text}</ChatBubble>)}
-            {pending ? <ChatBubble className="text-muted-foreground">Thinking...</ChatBubble> : null}
-          </div>
-
-          <div className="border-t p-3">
-            <label className="sr-only" htmlFor={inputId}>Ask TUNAS</label>
-            <Textarea ref={inputRef} id={inputId} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder={inputPlaceholder} className="min-h-20 resize-none text-base" disabled={pending} />
-            <div className="mt-2 flex items-center justify-between gap-2"><p className="text-xs text-muted-foreground">Enter to send - Shift+Enter for a new line</p><Button type="button" size="icon" aria-label="Send message" disabled={!draft.trim() || pending} onClick={() => void sendMessage()}><Send aria-hidden="true" /></Button></div>
-          </div>
-        </section>
-      ) : (
-        <Button type="button" size="lg" className="rounded-full border-ai-700 bg-ai-700 px-5 text-white shadow-lift hover:bg-ai-700/90" aria-label="Open TUNAS assistant" aria-expanded={false} onClick={() => setOpen(true)} icon={<Sparkles aria-hidden="true" />}>Ask TUNAS</Button>
-      )}
-    </div>
-  );
+  useEffect(() => { let live = true; void Promise.all([getTunasMessages(), checkTunasForecast()]).then(([, result]) => { if (live) setState(result); }).catch((reason) => { if (live) setError(reason instanceof Error ? reason.message : "Tunas AI could not load."); }).finally(() => { if (live) setLoading(false); }); return () => { live = false; }; }, []);
+  useEffect(() => { if (open) scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }); }, [open, state.messages]);
+  async function show() { setOpen(true); try { setState(await markTunasRead()); } catch { /* History stays available if marking read fails. */ } }
+  async function test(scenario: "drying-rain" | "harvest-rain" | "irregular-rain") { setWorking(scenario); setError(null); try { setState(await createTunasTestAlert(scenario)); } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not generate the demo alert."); } finally { setWorking(null); } }
+  async function act(message: TunasMessage, item: TunasAction) { setWorking(`${message.tunasMessageId}:${item.id}`); setError(null); try { const result = await actOnTunasMessage(message.tunasMessageId, item.id); setState(result.messages); if (result.navigation) navigate(`/missions/${result.navigation.missionId}/edit`, { state: { tunasDraft: result.navigation.draft, tunasAutoGenerate: result.navigation.autoGenerate } }); } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not save that decision."); } finally { setWorking(null); } }
+  return <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] right-3 z-40 sm:bottom-5 sm:right-5 lg:bottom-6 lg:right-6">
+    {open ? <section aria-label="Tunas AI" className="motion-enter flex h-[min(620px,calc(100dvh-7rem))] w-[min(390px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border border-ai-100 bg-card shadow-lift" onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); }}>
+      <header className="flex items-center justify-between gap-3 bg-ai-700 px-4 py-3 text-white"><div className="flex min-w-0 items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-full bg-white/15"><Bot className="h-5 w-5" aria-hidden="true" /></span><div><h2 className="font-bold">Tunas AI</h2><p className="text-xs text-white/80">Weather-aware mission support</p></div></div><Button type="button" size="icon" variant="ghost" className="border-transparent text-white hover:bg-white/15 hover:text-white" aria-label="Close Tunas AI" onClick={() => setOpen(false)}><X aria-hidden="true" /></Button></header>
+      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4" aria-live="polite" aria-busy={loading}>{loading ? <p className="text-sm text-muted-foreground">Checking your mission forecast…</p> : state.messages.length ? state.messages.map((message) => <div key={message.tunasMessageId} className="grid gap-2"><ChatBubble variant={message.role === "farmer" ? "user" : "assistant"}>{message.content}</ChatBubble>{message.mission ? <Link to={`/missions/${message.mission.missionId}`} aria-label={`View related mission: ${message.mission.originalMessage}`} className="grid gap-1 rounded-md border border-ai-100 bg-ai-50 px-3 py-2 text-left text-sm transition-colors hover:bg-ai-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/30"><span className="flex items-center gap-2 font-bold text-ai-700"><ClipboardList className="h-4 w-4" aria-hidden="true" />Related mission</span><span className="truncate font-medium text-foreground">{message.mission.originalMessage}</span><span className="text-xs text-muted-foreground">{message.mission.status} · {message.mission.stage}</span></Link> : null}{message.actions.length ? <div className="flex flex-wrap gap-2">{message.actions.map((item) => <Button key={item.id} type="button" size="sm" variant={item.id === "keep" ? "outline" : "primary"} disabled={working !== null} isLoading={working === `${message.tunasMessageId}:${item.id}`} loadingLabel="Saving" onClick={() => void act(message, item)}>{item.label}</Button>)}</div> : null}</div>) : <p className="rounded-md border border-dashed p-4 text-sm leading-6 text-muted-foreground">No weather risks need action right now. Tunas will check active missions again tomorrow.</p>}{error ? <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert">{error}</p> : null}</div>
+      <footer className="border-t bg-muted/30 p-3"><p className="mb-2 text-xs font-bold text-muted-foreground">Test Tunas alerts</p><div className="grid grid-cols-3 gap-2"><Button type="button" size="sm" variant="outline" disabled={working !== null} onClick={() => void test("drying-rain")}>Drying rain</Button><Button type="button" size="sm" variant="outline" disabled={working !== null} onClick={() => void test("harvest-rain")}>Harvest rain</Button><Button type="button" size="sm" variant="outline" disabled={working !== null} onClick={() => void test("irregular-rain")}>Irregular rain</Button></div></footer>
+    </section> : <Button type="button" size="lg" className="relative min-h-11 rounded-full border-ai-700 bg-ai-700 px-5 text-white shadow-lift hover:bg-ai-700/90" aria-label={`Open Tunas AI${state.unreadCount ? `, ${state.unreadCount} unread alerts` : ""}`} aria-expanded="false" onClick={() => void show()} icon={<Sparkles aria-hidden="true" />}>Tunas AI{state.unreadCount ? <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-risk-700 px-1 text-xs font-bold text-white" aria-hidden="true">{state.unreadCount > 9 ? "9+" : state.unreadCount}</span> : null}</Button>}
+  </div>;
 }
