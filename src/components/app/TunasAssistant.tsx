@@ -140,7 +140,10 @@ function ContextualTunasAssistant({ contextLabel, contextTone = "ai", starterMes
     if (!question || working) return;
     setDraft(""); setWorking(true);
     setMessages((current) => [...current, { id: Date.now(), role: "user", text: question }]);
-    try { setMessages((current) => [...current, { id: Date.now() + 1, role: "assistant", text: await onAsk(question) }]); }
+    try {
+      const response = await onAsk(question);
+      setMessages((current) => [...current, { id: Date.now() + 1, role: "assistant", text: response }]);
+    }
     catch { setMessages((current) => [...current, { id: Date.now() + 1, role: "assistant", text: "I couldn’t answer that just now. Please try again." }]); }
     finally { setWorking(false); }
   }
