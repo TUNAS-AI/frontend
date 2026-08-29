@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { ClipboardList, X } from "lucide-react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { ClipboardList, Send, X } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import {
   actOnTunasMessage,
@@ -13,8 +13,21 @@ import {
 } from "@/api/tunas";
 import { Button } from "@/components/ui/Button";
 import { ChatBubble } from "@/components/ui/ChatBubble";
+import { Badge, type BadgeProps } from "@/components/ui/Badge";
+import { Textarea } from "@/components/ui/textarea";
+import { ASSISTANT_PREFILL_EVENT, LEGACY_ASSISTANT_PREFILL_EVENT } from "@/components/app/assistantControl";
 
 const empty: TunasState = { messages: [], unreadCount: 0 };
+
+type AssistantMessage = { id: number; role: "assistant" | "user"; text: string };
+type TunasAssistantProps = {
+  contextLabel?: string;
+  contextTone?: BadgeProps["variant"];
+  starterMessage?: string;
+  subtitle?: string;
+  inputPlaceholder?: string;
+  onAsk?: (question: string) => Promise<string> | string;
+};
 
 type MascotPresentation = {
   alt: string;
@@ -100,7 +113,48 @@ function getMascotPresentation({ error, loading, state, working }: { error: stri
   };
 }
 
-export function TunasAssistant() {
+export function TunasAssistant(props: TunasAssistantProps) {
+  if (props.contextLabel && props.starterMessage && props.onAsk) return <ContextualTunasAssistant {...props} contextLabel={props.contextLabel} starterMessage={props.starterMessage} onAsk={props.onAsk} />;
+  return <GlobalTunasAssistant />;
+}
+
+function ContextualTunasAssistant({ contextLabel, contextTone = "ai", starterMessage, subtitle = "Page-specific guidance", inputPlaceholder = "Ask Tunas AI…", onAsk }: Required<Pick<TunasAssistantProps, "contextLabel" | "starterMessage" | "onAsk">> & Omit<TunasAssistantProps, "contextLabel" | "starterMessage" | "onAsk">) {
+  const inputId = useId();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [working, setWorking] = useState(false);
+  const [messages, setMessages] = useState<AssistantMessage[]>([{ id: 0, role: "assistant", text: starterMessage }]);
+
+  useEffect(() => {
+    const prefill = (event: Event) => { const text = (event as CustomEvent<string>).detail; if (text) { setDraft(text); setOpen(true); } };
+    window.addEventListener(ASSISTANT_PREFILL_EVENT, prefill);
+    window.addEventListener(LEGACY_ASSISTANT_PREFILL_EVENT, prefill);
+    return () => { window.removeEventListener(ASSISTANT_PREFILL_EVENT, prefill); window.removeEventListener(LEGACY_ASSISTANT_PREFILL_EVENT, prefill); };
+  }, []);
+  useEffect(() => { if (open) scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [open, messages, working]);
+
+  async function ask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const question = draft.trim();
+    if (!question || working) return;
+    setDraft(""); setWorking(true);
+    setMessages((current) => [...current, { id: Date.now(), role: "user", text: question }]);
+    try { setMessages((current) => [...current, { id: Date.now() + 1, role: "assistant", text: await onAsk(question) }]); }
+    catch { setMessages((current) => [...current, { id: Date.now() + 1, role: "assistant", text: "I couldn’t answer that just now. Please try again." }]); }
+    finally { setWorking(false); }
+  }
+
+  return <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] right-3 z-40 sm:bottom-5 sm:right-5 lg:bottom-6 lg:right-6">
+    {open ? <section aria-label="Tunas AI" className="motion-enter flex h-[min(430px,calc(100dvh-8rem))] w-[min(390px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border border-ai-100 bg-card shadow-lift">
+      <header className="flex items-center justify-between gap-3 bg-ai-700 px-4 py-3 text-white"><div className="min-w-0"><h2 className="font-bold">Tunas AI</h2><p className="truncate text-xs text-white/80">{subtitle}</p></div><Button type="button" size="icon" variant="ghost" className="border-transparent text-white hover:bg-white/15 hover:text-white" aria-label="Close Tunas AI" onClick={() => setOpen(false)}><X aria-hidden="true" /></Button></header>
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4" aria-live="polite"><Badge variant={contextTone}>{contextLabel}</Badge>{messages.map((message) => <ChatBubble key={message.id} variant={message.role}>{message.text}</ChatBubble>)}{working ? <ChatBubble variant="assistant"><TunasTypingIndicator className="text-ai-700" /></ChatBubble> : null}</div>
+      <form className="flex gap-2 border-t bg-muted/30 p-3" onSubmit={(event) => void ask(event)}><label className="sr-only" htmlFor={inputId}>Ask Tunas AI</label><Textarea id={inputId} rows={2} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={inputPlaceholder} disabled={working} /><Button type="submit" size="icon" disabled={!draft.trim() || working} aria-label="Send question"><Send aria-hidden="true" /></Button></form>
+    </section> : <Button type="button" size="icon" className="h-12 w-12 min-h-12 rounded-full border-ai-700 bg-ai-700 p-0 text-white shadow-lift hover:bg-ai-700/90" aria-label="Open Tunas AI" onClick={() => setOpen(true)}><img src="/images/tunas-ai-icon-white.png" alt="" className="h-6 w-6 object-contain" /></Button>}
+  </div>;
+}
+
+function GlobalTunasAssistant() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<TunasState>(empty);
