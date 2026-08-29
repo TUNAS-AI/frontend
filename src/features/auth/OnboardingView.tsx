@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, CalendarClock, MapPinned, Plus, Sprout, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react";
+import { beginGoogleCalendarConnection } from "@/api/googleCalendar";
 import { submitOnboarding } from "@/api/onboarding";
 import { Button } from "@/components/ui/Button";
+import { GoogleCalendarMark } from "@/components/ui/GoogleCalendarMark";
 import { FieldGroup, Select } from "@/components/ui/FieldControl";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -86,8 +88,7 @@ export function OnboardingView({ copy, session, onComplete }: OnboardingViewProp
       }
       setBusy(true);
       try {
-        await submitOnboarding(buildOnboardingPayload({ farm, fields }));
-        if (!onComplete()) throw new Error("Your setup was saved, but this browser could not update your session. Sign in again to continue.");
+        await finishSetup();
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : "We could not save your farm setup. Try again.");
       } finally {
@@ -95,6 +96,23 @@ export function OnboardingView({ copy, session, onComplete }: OnboardingViewProp
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Check the information in this step and try again.");
+    }
+  }
+
+  async function finishSetup() {
+    await submitOnboarding(buildOnboardingPayload({ farm, fields }));
+    if (!onComplete()) throw new Error("Your setup was saved, but this browser could not update your session. Sign in again to continue.");
+  }
+
+  async function connectCalendar() {
+    setBusy(true); setError(null);
+    try {
+      await finishSetup();
+      const { authorizationUrl } = await beginGoogleCalendarConnection();
+      window.location.assign(authorizationUrl);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "We could not connect Google Calendar. Try again.");
+      setBusy(false);
     }
   }
 
@@ -109,9 +127,8 @@ export function OnboardingView({ copy, session, onComplete }: OnboardingViewProp
       <div className="mx-auto flex min-h-[calc(100dvh-3rem)] w-full max-w-3xl flex-col">
         <header className="mb-6 flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-forest-700 text-white shadow-lift"><Sprout className="h-5 w-5" aria-hidden="true" /></span>
+            <img src="/images/tunas-ai-logo.png" alt="TUNAS" className="h-11 w-auto shrink-0 object-contain" />
             <div>
-              <p className="font-extrabold tracking-[0.08em] text-forest-700">TUNAS</p>
               <p className="mt-0.5 text-sm text-muted-foreground">Farm setup</p>
             </div>
           </div>
@@ -132,14 +149,14 @@ export function OnboardingView({ copy, session, onComplete }: OnboardingViewProp
           <div className="border-b pb-5">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-forest-700">Step {stepIndex + 1} of {steps.length}</p>
             <h1 id="onboarding-heading" className="mt-2 text-2xl font-extrabold tracking-tight">{step === "farm" ? copy.farmStepTitle : step === "fields-and-crops" ? copy.fieldsAndCropsStepTitle : copy.calendarStepTitle}</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{step === "farm" ? copy.description : step === "fields-and-crops" ? "Each crop batch belongs to a field block. Add the field and its shallot batches together." : "Calendar connection is optional and is not available yet."}</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{step === "farm" ? copy.description : step === "fields-and-crops" ? "Each crop batch belongs to a field block. Add the field and its shallot batches together." : "Optional. TUNAS only sends approved mission schedules to your primary Google Calendar."}</p>
           </div>
 
           <form className="mt-5" onSubmit={next}>
             <div className="grid gap-5">
               {step === "farm" ? <FarmStep farm={farm} onFarmChange={updateFarm} onAddWindow={addWorkWindow} /> : null}
               {step === "fields-and-crops" ? <FieldsAndCropsStep fields={fields} onFieldsChange={setFields} onFieldChange={updateField} /> : null}
-              {step === "calendar" ? <CalendarStep copy={copy} /> : null}
+              {step === "calendar" ? <CalendarStep copy={copy} busy={busy} onConnect={() => void connectCalendar()} /> : null}
               {error ? <ErrorLine message={error} /> : null}
             </div>
 
@@ -194,8 +211,8 @@ function FieldsAndCropsStep({ fields, onFieldsChange, onFieldChange }: { fields:
   </>;
 }
 
-function CalendarStep({ copy }: { copy: OnboardingPageCopy }) {
-  return <div className="grid gap-3 rounded-lg border border-dashed bg-field-50/60 p-4 text-center"><span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-card text-forest-700"><CalendarClock aria-hidden="true" /></span><div><h2 className="font-extrabold">{copy.calendarHeldLabel}</h2><p className="mt-1.5 text-sm leading-6 text-muted-foreground">{copy.calendarHeldBody}</p></div><Button type="button" variant="outline" className="mx-auto" disabled icon={<MapPinned aria-hidden="true" />}>Connect Google Calendar · coming soon</Button></div>;
+function CalendarStep({ copy, busy, onConnect }: { copy: OnboardingPageCopy; busy: boolean; onConnect: () => void }) {
+  return <div className="grid gap-3 rounded-lg border border-leaf-300 bg-field-50/60 p-4 text-center"><span className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-card shadow-sm"><GoogleCalendarMark aria-hidden="true" /></span><div><h2 className="font-extrabold">{copy.calendarHeldLabel}</h2><p className="mt-1.5 text-sm leading-6 text-muted-foreground">{copy.calendarHeldBody}</p></div><Button type="button" variant="outline" className="mx-auto" disabled={busy} onClick={onConnect} icon={<GoogleCalendarMark aria-hidden="true" />}>Connect Google Calendar and finish</Button></div>;
 }
 
 function ErrorLine({ message }: { message: string }) {

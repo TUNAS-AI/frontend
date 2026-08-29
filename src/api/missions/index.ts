@@ -3,7 +3,7 @@ import { apiFetch } from "../http.ts";
 export type MissionStatus = "ACTIVE" | "CLOSEOUT" | "COMPLETED";
 export type MissionStage = "WAITING" | "HARVESTING" | "DRYING" | "FINISHED" | "TO_REVIEW" | "COMPLETED";
 export type MissionStepStatus = "SCHEDULED" | "IN_PROGRESS" | "COMPLETED";
-export type MissionCloseoutInput = { actualHarvestKg: number; actualDriedKg: number; harvestedAreaHectares: number | null; buyerTargetMet: boolean; dryingCompleted: boolean; rejectedKg: number | null; notes: string | null };
+export type MissionCloseoutInput = { actualHarvestKg: number; actualDriedKg: number; harvestedAreaHectares: number | null; dryingCompleted: boolean; rejectedKg: number | null; notes: string | null };
 export type FactConfidence = "high" | "medium" | "low";
 export type FactProvenance = "FARMER_REPORTED" | "INFERRED";
 export type MissionReviewStatus = "confirmed" | "needs_clarification" | "missing";
@@ -12,8 +12,6 @@ export type MissionMessage = { role: "farmer" | "assistant"; content: string };
 export type MissionFacts = {
   fieldBlockId: string | null;
   cropBatchIds: string[];
-  buyerCommitmentId: string | null;
-  buyerQuantityKg: number | null;
   marketQuality: "Grade A" | "Grade B" | "Grade C" | null;
   plannedHarvestKg: number | null;
   plannedDriedKg: number | null;
@@ -31,6 +29,7 @@ export type MissionPreviewInterpretation = MissionPreviewCandidate;
 export type MissionPlanActivity = { title: string; description: string; scheduleType: "DAILY_WINDOW" | "DATE_RANGE"; startsOn: string; endsOn: string; windowStart: string | null; windowEnd: string | null; timezone: string; isConditional: boolean; stage: "HARVESTING" | "DRYING"; targetHarvestKg?: number | null };
 export type MissionPreviewPlan = { planId: string; name: string; summary: string; recommended: boolean; assumptions: string[]; risks: Record<string, string>; dryingEstimateDays: number; dryingEstimateReason: string; activities: MissionPlanActivity[] };
 export type MissionPlanPreview = { missionId: string; plans: MissionPreviewPlan[]; previewToken: string; expiresInSeconds: number };
+export type MissionDeletionResult = { missionId: string; calendarCleanup: { removed: number; failed: number; failureReason?: string } };
 
 export type MissionStep = {
   missionStepId: string;
@@ -87,7 +86,7 @@ export type Mission = MissionListItem & {
   messages: MissionMessage[];
   constraints: MissionConstraint[];
   planningRuns: Array<{ plans: MissionPlan[] }>;
-  closeout: { plannedHarvestKg: number; plannedDriedKg: number; actualHarvestKg: number; actualDriedKg: number; harvestedAreaHectares: number | null; buyerTargetMet: boolean; dryingCompleted: boolean; rejectedKg: number | null; notes: string | null; summary: { summary: string; lessons: string[] } | null } | null;
+  closeout: { plannedHarvestKg: number; plannedDriedKg: number; actualHarvestKg: number; actualDriedKg: number; harvestedAreaHectares: number | null; dryingCompleted: boolean; rejectedKg: number | null; notes: string | null; summary: { summary: string; lessons: string[] } | null } | null;
 };
 
 type ApiErrorBody = { error?: string };
@@ -102,7 +101,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export function getMissions() { return request<MissionListItem[]>("/api/missions"); }
 export function getCalendarMissionSteps(from: string, to: string) { return request<CalendarMissionStep[]>(`/api/missions/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`); }
 export function getMission(id: string) { return request<Mission>(`/api/missions/${id}`); }
-export function deleteMission(id: string) { return request<{ missionId: string }>(`/api/missions/${id}`, { method: "DELETE" }); }
+export function deleteMission(id: string) { return request<MissionDeletionResult>(`/api/missions/${id}`, { method: "DELETE" }); }
 export function advanceMissionStage(id: string, stage: "HARVESTING" | "DRYING" | "FINISHED" | "TO_REVIEW") { return request<Mission>(`/api/missions/${id}/stage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stage }) }); }
 export function completeMissionStep(id: string, stepId: string) { return request<Mission>(`/api/missions/${id}/steps/${stepId}/status`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "COMPLETED" }) }); }
 export function saveMissionCloseout(id: string, input: MissionCloseoutInput) { return request<Mission>(`/api/missions/${id}/closeout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }); }

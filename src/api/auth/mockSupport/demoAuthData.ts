@@ -8,5 +8,5 @@ export const DEMO_ONBOARDING_PAGE_COPY: OnboardingPageCopy = {
   calendarStepTitle: "Google Calendar",
   finishLabel: "Finish setup",
   calendarHeldLabel: "Google Calendar",
-  calendarHeldBody: "Calendar connection is paused until the backend OAuth flow is ready. You can continue without it.",
+  calendarHeldBody: "TUNAS sends only approved mission schedules to your primary Google Calendar. Your personal events are never shown here.",
 };

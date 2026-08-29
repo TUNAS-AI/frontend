@@ -112,6 +112,111 @@
   min-height: 100dvh;
 }
 
+@keyframes tunas-mascot-peek {
+  0%, 14% {
+    opacity: 0;
+    transform: translateX(78%);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes tunas-chat-appear {
+  0%, 30% {
+    opacity: 0;
+    transform: translate3d(1rem, 0.65rem, 0) scale(0.94);
+  }
+
+  76% {
+    opacity: 1;
+    transform: translate3d(-0.1rem, -0.05rem, 0) scale(1.015);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.auth-mascot-peek {
+  animation: tunas-mascot-peek 1.15s cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
+  will-change: transform, opacity;
+}
+
+.auth-chat-bubble {
+  animation: tunas-chat-appear 650ms cubic-bezier(0.22, 0.9, 0.28, 1) 700ms both;
+  will-change: transform, opacity;
+}
+
+.tunas-assistant-header {
+  padding-left: 5.25rem !important;
+}
+
+.tunas-assistant-mascot {
+  display: block !important;
+  top: -1.5rem !important;
+  left: 1rem !important;
+  width: auto !important;
+  height: 5.25rem !important;
+  max-width: none !important;
+}
+
+@keyframes tunas-typing-dot {
+  0%, 100% {
+    opacity: 0.4;
+    transform: translateY(1px);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
+}
+
+.tunas-typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-height: 1rem;
+}
+
+.tunas-typing-indicator > span {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: currentColor;
+  animation: tunas-typing-dot 280ms var(--motion-ease-out) infinite;
+}
+
+.tunas-typing-indicator > span:nth-child(2) { animation-delay: 70ms; }
+.tunas-typing-indicator > span:nth-child(3) { animation-delay: 140ms; }
+
+@keyframes tunas-hero-copy-enter {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.auth-hero-eyebrow,
+.auth-hero-headline,
+.auth-hero-description {
+  animation: tunas-hero-copy-enter 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.auth-hero-eyebrow { animation-delay: 180ms; }
+.auth-hero-headline { animation-delay: 320ms; }
+.auth-hero-description { animation-delay: 460ms; }
+
 @keyframes tunas-enter {
   from {
     opacity: 0;
@@ -186,27 +291,34 @@
   animation-duration: var(--motion-enter-duration);
 }
 
-[data-tunas-dialog-content],
-[data-tunas-alert-dialog-content] {
+[data-tunas-dialog-content] {
   transform: translateY(8px);
   animation: tunas-dialog-out var(--motion-exit-duration) var(--motion-ease-out) both;
 }
 
-[data-tunas-dialog-content][data-state="open"],
-[data-tunas-alert-dialog-content][data-state="open"] {
+[data-tunas-dialog-content][data-state="open"] {
   animation-name: tunas-dialog-in;
   animation-duration: var(--motion-enter-duration);
 }
 
+[data-tunas-alert-dialog-content] {
+  transform: translate(-50%, -50%) translateY(8px);
+  animation: tunas-modal-out var(--motion-exit-duration) var(--motion-ease-out) both;
+}
+
+[data-tunas-alert-dialog-content][data-state="open"] {
+  transform: translate(-50%, -50%) translateY(0);
+  animation-name: tunas-modal-in;
+  animation-duration: var(--motion-enter-duration);
+}
+
 @media (min-width: 640px) {
-  [data-tunas-dialog-content],
-  [data-tunas-alert-dialog-content] {
+  [data-tunas-dialog-content] {
     transform: translate(-50%, -50%) scale(0.97);
     animation-name: tunas-modal-out;
   }
 
-  [data-tunas-dialog-content][data-state="open"],
-  [data-tunas-alert-dialog-content][data-state="open"] {
+  [data-tunas-dialog-content][data-state="open"] {
     animation-name: tunas-modal-in;
   }
 }
@@ -255,14 +367,26 @@
 
   .skeleton::after { animation: none; }
 
-  [data-tunas-dialog-content],
-  [data-tunas-alert-dialog-content] {
+  .tunas-typing-indicator > span {
+    animation: none;
+    opacity: 0.8;
+    transform: none;
+  }
+
+  .auth-mascot-peek,
+  .auth-chat-bubble,
+  .auth-hero-eyebrow,
+  .auth-hero-headline,
+  .auth-hero-description {
+    animation-delay: 0ms !important;
+  }
+
+  [data-tunas-dialog-content] {
     transform: translateY(0);
   }
 
   @media (min-width: 640px) {
-    [data-tunas-dialog-content],
-    [data-tunas-alert-dialog-content] {
+    [data-tunas-dialog-content] {
       transform: translate(-50%, -50%);
     }
   }

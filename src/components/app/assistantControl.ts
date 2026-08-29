@@ -6,4 +6,4 @@ export function openTunasAssistantWithDraft(draft: string) {
 }
 
 /** @deprecated Use openTunasAssistantWithDraft. */
-export const openHijauAssistantWithDraft = openTunasAssistantWithDraft;
+export const openLegacyAssistantWithDraft = openTunasAssistantWithDraft;

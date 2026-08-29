@@ -33,3 +33,30 @@ test("provides shared motion and skeleton loading primitives", async () => {
   assert.match(missionsRoute, /<LoadingShell/);
   assert.match(missionDetailRoute, /<LoadingShell/);
 });
+
+test("uses a compact TUNAS launcher and typing indicators while assistant context loads", async () => {
+  const [assistant, styles] = await Promise.all([
+    readFile(new URL("../src/components/app/TunasAssistant.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/styles.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(assistant, /bottom-\[calc\(env\(safe-area-inset-bottom\)\+0\.75rem\)\]/);
+  assert.match(assistant, /\/images\/tunas-ai-icon-white\.png/);
+  assert.doesNotMatch(assistant, /Sparkles/);
+  assert.match(assistant, /sm:h-14 sm:w-auto sm:min-h-14 sm:px-6/);
+  assert.match(assistant, /<span className="hidden sm:inline">Tunas AI<\/span>/);
+  assert.match(assistant, /TunasTypingIndicator/);
+  assert.match(styles, /@keyframes tunas-typing-dot/);
+  assert.match(styles, /\.tunas-typing-indicator > span\s*\{\s*animation: none;/);
+});
+
+test("centers confirmation dialogs within the mobile viewport", async () => {
+  const [alertDialog, styles] = await Promise.all([
+    readFile(new URL("../src/components/ui/alert-dialog.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/styles.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(alertDialog, /max-h-\[calc\(100dvh-2rem\)\] w-\[calc\(100%-2rem\)\][\s\S]*-translate-x-1\/2 -translate-y-1\/2[\s\S]*overflow-y-auto/);
+  assert.match(alertDialog, /flex flex-col-reverse gap-2 \[&>\*\]:w-full sm:flex-row sm:justify-end sm:space-x-2 sm:\[&>\*\]:w-auto/);
+  assert.match(styles, /\[data-tunas-alert-dialog-content\] \{\s*transform: translate\(-50%, -50%\) translateY\(8px\);/);
+});

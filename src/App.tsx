@@ -36,7 +36,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, AppErrorBounda
           <ErrorState
             title="This screen could not load"
             description={this.state.error.message || "An unexpected frontend error occurred."}
-            action={<Link className="font-bold underline underline-offset-4" to="/today">Reload Today</Link>}
+            action={<Link className="font-bold underline underline-offset-4" to="/farm">Open Farm</Link>}
           />
         </main>
       );

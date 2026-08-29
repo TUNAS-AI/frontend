@@ -10,7 +10,7 @@ export const authPageCopy: AuthPageCopy = {
   brandName: "TUNAS",
   brandTagline: "Shallot harvest planning for Indonesian farms",
   headline: "Plan every harvest with confidence.",
-  description: "Turn farmer-confirmed readiness, weather, buyer deadlines, and drying capacity into a practical mission.",
+  description: "Turn farmer-confirmed readiness, weather, harvest deadlines, and drying capacity into a practical mission.",
   loginTitle: "Sign in to TUNAS",
   loginDescription: "Continue to your farm's harvest plans and decisions.",
   googleSignInLabel: "Continue with Google",

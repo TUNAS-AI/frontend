@@ -1,6 +1,6 @@
 import type { ComponentType, SVGProps } from "react";
 
-export type AppView = "today" | "calendar" | "add" | "fields" | "history" | "review";
+export type AppView = "calendar" | "add" | "fields" | "history" | "review";
 
 export type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 

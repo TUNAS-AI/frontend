@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, Sprout } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router";
 import { completeFrontendGoogleCallback, getPostAuthenticationPath } from "@/api/auth";
 import { Button } from "@/components/ui/Button";
@@ -27,7 +27,7 @@ export function AuthCallbackRoute() {
   return (
     <main className="grid min-h-dvh place-items-center bg-background p-5 text-foreground">
       <section className="w-full max-w-md rounded-2xl border bg-card p-7 text-center shadow-farm" aria-live="polite">
-        <span className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-forest-700 text-white shadow-lift"><Sprout className="h-5 w-5" aria-hidden="true" /></span>
+        <img src="/images/tunas-ai-logo.png" alt="TUNAS" className="mx-auto h-12 w-auto object-contain" />
         {error ? (
           <>
             <AlertCircle className="mx-auto mt-5 h-6 w-6 text-destructive" aria-hidden="true" />

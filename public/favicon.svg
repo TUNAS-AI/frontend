@@ -1,6 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="18" fill="#1D4428"/>
-  <path d="M32 51c-10.5 0-17-6.3-17-15.1C15 27.1 23 20 32 20s17 7.1 17 15.9C49 44.7 42.5 51 32 51Z" fill="#F7F5EE"/>
-  <path d="M32 44c-6.9 0-11-3.7-11-8.7 0-5.1 4.8-9.3 11-9.3s11 4.2 11 9.3C43 40.3 38.9 44 32 44Z" fill="#78B082"/>
-  <path d="M31.7 28.8c-4.3-5.4-3.8-12.7 1.5-17.8 4.2 5.7 3.7 12.4-1.5 17.8Zm1.2.1c2.3-6.5 8.6-9.6 15.1-7.8-2.8 6.5-8.8 9.5-15.1 7.8Z" fill="#DDF0D8"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 495 615">
+  <image href="/images/tunas-ai-icon.png" width="495" height="615" />
 </svg>

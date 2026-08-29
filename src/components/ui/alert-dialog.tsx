@@ -36,7 +36,7 @@ const AlertDialogContent = React.forwardRef<
       ref={ref}
       data-tunas-alert-dialog-content=""
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg sm:rounded-lg",
+        "fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-lg border bg-background p-5 shadow-lg sm:p-6",
         className
       )}
       {...props}
@@ -65,7 +65,7 @@ const AlertDialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+      "flex flex-col-reverse gap-2 [&>*]:w-full sm:flex-row sm:justify-end sm:space-x-2 sm:[&>*]:w-auto",
       className
     )}
     {...props}

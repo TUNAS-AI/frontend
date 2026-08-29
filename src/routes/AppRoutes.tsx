@@ -10,7 +10,6 @@ const NewMissionRoute = lazy(() => import("./NewMissionRoute").then(({ NewMissio
 const MissionDetailRoute = lazy(() => import("./MissionDetailRoute").then(({ MissionDetailRoute: Route }) => ({ default: Route })));
 const EditMissionRoute = lazy(() => import("./EditMissionRoute").then(({ EditMissionRoute: Route }) => ({ default: Route })));
 const NotFoundRoute = lazy(() => import("./NotFoundRoute").then(({ NotFoundRoute: Route }) => ({ default: Route })));
-const TodayRoute = lazy(() => import("./TodayRoute").then(({ TodayRoute: Route }) => ({ default: Route })));
 const CalendarRoute = lazy(() => import("./CalendarRoute").then(({ CalendarRoute: Route }) => ({ default: Route })));
 const AuthRoute = lazy(() => import("./AuthRoute").then(({ AuthRoute: Route }) => ({ default: Route })));
 const AuthCallbackRoute = lazy(() => import("./AuthCallbackRoute").then(({ AuthCallbackRoute: Route }) => ({ default: Route })));
@@ -28,8 +27,7 @@ export function AppRoutes() {
           <Route path="/onboarding" element={<OnboardingRoute />} />
         </Route>
         <Route element={<FarmRequiredRoute />}>
-          <Route index element={<Navigate to="/today" replace />} />
-          <Route path="/today" element={<TodayRoute />} />
+          <Route index element={<Navigate to="/farm" replace />} />
           <Route path="/calendar" element={<CalendarRoute />} />
           <Route path="/missions" element={<MissionsRoute />} />
           <Route path="/missions/new" element={<NewMissionRoute />} />
@@ -53,7 +51,7 @@ function OnboardingOnlyRoute() {
   const { status, session } = useAuthSession();
   if (status === "loading") return <RouteNotice label="Checking sign-in…" />;
   if (!session) return <Navigate to="/login" replace />;
-  return session.hasFarm ? <Navigate to="/today" replace /> : <Outlet />;
+  return session.hasFarm ? <Navigate to="/farm" replace /> : <Outlet />;
 }
 
 function FarmRequiredRoute() {

@@ -24,6 +24,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { FieldGroup } from "@/components/ui/FieldControl";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { deleteFarm } from "@/api/farm/delete";
+import { useAuthSession } from "@/features/auth/useAuthSession";
+import { validateFieldBlockForm } from "@/features/farm/fieldBlockForm";
+import { useNavigate } from "react-router";
 
 type FarmViewProps = { data: FarmSnapshot; onRefresh: () => Promise<void> };
 type DialogState = "farm" | "new-field" | "edit-field" | "new-batch" | "edit-batch" | null;
@@ -41,6 +45,8 @@ function statusVariant(status: string) { return status.toLowerCase() === "active
 function titleStatus(status: string) { return status ? `${status[0].toUpperCase()}${status.slice(1)}` : "Not recorded"; }
 
 export function FarmView({ data, onRefresh }: FarmViewProps) {
+  const navigate = useNavigate();
+  const { signOut } = useAuthSession();
   const [dialog, setDialog] = useState<DialogState>(null);
   const [fieldId, setFieldId] = useState<string | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
@@ -48,6 +54,8 @@ export function FarmView({ data, onRefresh }: FarmViewProps) {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleteFarmOpen, setDeleteFarmOpen] = useState(false);
+  const [deletingFarm, setDeletingFarm] = useState(false);
   const field = useMemo(() => data.fieldBlocks.find((item) => item.fieldBlockId === fieldId) ?? null, [data.fieldBlocks, fieldId]);
   const batch = useMemo(() => data.cropBatches.find((item) => item.cropBatchId === batchId) ?? null, [data.cropBatches, batchId]);
 
@@ -58,6 +66,21 @@ export function FarmView({ data, onRefresh }: FarmViewProps) {
     try { await work(); await onRefresh(); setNotice(success); return true; }
     catch (reason) { setError(reason instanceof Error ? reason.message : "We could not save that change. Try again."); return false; }
     finally { setBusyAction(null); }
+  }
+
+  async function removeFarm() {
+    setError(null);
+    setDeletingFarm(true);
+    try {
+      await deleteFarm();
+      signOut();
+      navigate("/login", { replace: true });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "We could not delete your farm. Try again.");
+      setDeleteFarmOpen(false);
+    } finally {
+      setDeletingFarm(false);
+    }
   }
 
   function openFieldDialog(next: "new-field" | "edit-field", nextField?: FieldBlock) { setFieldId(nextField?.fieldBlockId ?? null); setDialog(next); }
@@ -89,10 +112,16 @@ export function FarmView({ data, onRefresh }: FarmViewProps) {
       {data.fieldBlocks.length ? <div className="grid gap-3">{data.fieldBlocks.map((block) => <FieldBlockCard key={block.fieldBlockId} block={block} batches={batchesFor(block.fieldBlockId)} busyAction={busyAction} onEdit={() => openFieldDialog("edit-field", block)} onDelete={() => setDeleteTarget({ kind: "field", record: block })} onAddBatch={() => openBatchDialog("new-batch", block)} onEditBatch={(item) => openBatchDialog("edit-batch", block, item)} onDeleteBatch={(item) => setDeleteTarget({ kind: "batch", record: item })} />)}</div> : <EmptyFields onAdd={() => openFieldDialog("new-field")} />}
     </section>
 
+    <section className="grid gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-5" aria-labelledby="danger-zone-heading">
+      <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-destructive">Danger zone</p><h2 id="danger-zone-heading" className="mt-1 text-xl font-extrabold tracking-tight text-foreground">Delete this farm</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">This permanently deletes the farm, its field blocks, crop batches, missions, and related records. You will be signed out.</p></div>
+      <Button type="button" variant="danger" className="w-fit" icon={<Trash2 aria-hidden="true" />} disabled={Boolean(busyAction) || deletingFarm} onClick={() => setDeleteFarmOpen(true)}>Delete farm</Button>
+    </section>
+
     <FarmEditDialog open={dialog === "farm"} farm={data.farm} busy={busyAction === "farm"} onOpenChange={(open) => { if (!open) setDialog(null); }} onSave={(input) => run("farm", () => updateFarm(input), "Farm details updated.")} />
-    <FieldBlockDialog open={dialog === "new-field" || dialog === "edit-field"} block={dialog === "edit-field" ? field : null} busy={busyAction === "field"} onOpenChange={(open) => { if (!open) setDialog(null); }} onSave={async (input) => { const saved = await run("field", () => field ? updateFieldBlock(field.fieldBlockId, input) : createFieldBlock(input), field ? "Field block updated." : "Field block added."); if (saved) setDialog(null); }} />
+    <FieldBlockDialog open={dialog === "new-field" || dialog === "edit-field"} block={dialog === "edit-field" ? field : null} busy={busyAction === "field"} serverError={error} onOpenChange={(open) => { if (!open) setDialog(null); }} onSave={async (input) => { const saved = await run("field", () => field ? updateFieldBlock(field.fieldBlockId, input) : createFieldBlock(input), field ? "Field block updated." : "Field block added."); if (saved) setDialog(null); return saved; }} />
     <CropBatchDialog open={dialog === "new-batch" || dialog === "edit-batch"} field={field} batch={dialog === "edit-batch" ? batch : null} busy={busyAction === "batch"} onOpenChange={(open) => { if (!open) setDialog(null); }} onSave={async (input) => { const saved = await run("batch", () => batch ? updateCropBatch(batch.cropBatchId, input) : createCropBatch(input), batch ? "Crop batch updated." : "Crop batch added."); if (saved) setDialog(null); }} />
     <DeleteDialog target={deleteTarget} busy={busyAction === "delete"} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }} onConfirm={async () => { if (!deleteTarget) return; const saved = await run("delete", () => deleteTarget.kind === "field" ? deleteFieldBlock(deleteTarget.record.fieldBlockId) : deleteCropBatch(deleteTarget.record.cropBatchId), deleteTarget.kind === "field" ? "Field block deleted." : "Crop batch deleted."); if (saved) setDeleteTarget(null); }} />
+    <AlertDialog open={deleteFarmOpen} onOpenChange={(open) => { if (!deletingFarm) setDeleteFarmOpen(open); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete this farm?</AlertDialogTitle><AlertDialogDescription>This permanently deletes the farm and all related records. This cannot be undone.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={deletingFarm}>Keep farm</AlertDialogCancel><AlertDialogAction className="border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deletingFarm} onClick={(event) => { event.preventDefault(); void removeFarm(); }}>{deletingFarm ? "Deleting farm…" : "Delete farm"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </div>;
 }
 
@@ -114,13 +143,28 @@ function FarmEditDialog({ open, farm, busy, onOpenChange, onSave }: { open: bool
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="sm:max-w-2xl"><DialogHeader><DialogTitle>Edit farm</DialogTitle><DialogDescription>These details are used as farm context for planning.</DialogDescription></DialogHeader><form className="grid gap-4" onSubmit={submit}><div className="grid gap-4 sm:grid-cols-2"><FieldGroup label="Farm name" required><Input name="name" required defaultValue={farm.name} /></FieldGroup><FieldGroup label="Planning capacity" required helper="People usually available for farm work."><Input name="defaultWorkerCount" type="number" min="1" step="1" required defaultValue={farm.defaultWorkerCount} /></FieldGroup><FieldGroup label="Location"><Input name="location" defaultValue={farm.location ?? ""} /></FieldGroup><FieldGroup label="Timezone" required><Input name="timezone" required defaultValue={farm.timezone} /></FieldGroup></div><FieldGroup label="Farm notes"><Textarea name="notes" className="min-h-20" defaultValue={farm.notes ?? ""} /></FieldGroup><WorkWindows windows={windows} onChange={setWindows} /><DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" isLoading={busy} loadingLabel="Saving farm">Save farm</Button></DialogFooter></form></DialogContent></Dialog>;
 }
 
-function FieldBlockDialog({ open, block, busy, onOpenChange, onSave }: { open: boolean; block: FieldBlock | null; busy: boolean; onOpenChange: (open: boolean) => void; onSave: (input: FieldBlockInput) => Promise<void> }) { function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const form = new FormData(event.currentTarget); const areaText = String(form.get("areaHectares") ?? "").trim(); const areaHectares = areaText ? numeric(areaText) : null; const input: FieldBlockInput = { name: String(form.get("name") ?? "").trim(), coordinates: { latitude: numeric(form.get("latitude")), longitude: numeric(form.get("longitude")) }, areaHectares, notes: optional(form.get("notes")), ...(optional(form.get("status")) ? { status: String(form.get("status")).trim() } : {}) }; void onSave(input); }
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>{block ? "Edit field block" : "Add field block"}</DialogTitle><DialogDescription>A field block needs a name and a map location. Crop batches are added after the field exists.</DialogDescription></DialogHeader><form className="grid gap-4" onSubmit={submit}><div className="grid gap-4 sm:grid-cols-2"><FieldGroup label="Field block name" required><Input name="name" required defaultValue={block?.name ?? ""} /></FieldGroup><FieldGroup label="Area (hectares)"><Input name="areaHectares" type="number" min="0.01" step="0.01" defaultValue={block?.areaHectares ?? ""} /></FieldGroup><FieldGroup label="Latitude" required><Input name="latitude" type="number" step="any" required defaultValue={block?.coordinates.latitude ?? ""} /></FieldGroup><FieldGroup label="Longitude" required><Input name="longitude" type="number" step="any" required defaultValue={block?.coordinates.longitude ?? ""} /></FieldGroup></div><FieldGroup label="Status"><Input name="status" defaultValue={block?.status ?? ""} placeholder="active" /></FieldGroup><FieldGroup label="Field notes"><Textarea name="notes" className="min-h-20" defaultValue={block?.notes ?? ""} /></FieldGroup><DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" isLoading={busy} loadingLabel="Saving field">{block ? "Save field" : "Add field"}</Button></DialogFooter></form></DialogContent></Dialog>; }
+function FieldBlockDialog({ open, block, busy, serverError, onOpenChange, onSave }: { open: boolean; block: FieldBlock | null; busy: boolean; serverError: string | null; onOpenChange: (open: boolean) => void; onSave: (input: FieldBlockInput) => Promise<boolean> }) {
+  const [errors, setErrors] = useState<Partial<Record<"name" | "latitude" | "longitude" | "areaHectares", string>>>({});
+  useEffect(() => { if (open) setErrors({}); }, [open, block]);
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const result = validateFieldBlockForm({ name: String(form.get("name") ?? ""), latitude: String(form.get("latitude") ?? ""), longitude: String(form.get("longitude") ?? ""), areaHectares: String(form.get("areaHectares") ?? ""), notes: String(form.get("notes") ?? ""), status: String(form.get("status") ?? "") });
+    setErrors(result.errors);
+    if (!result.input) {
+      const target = event.currentTarget.elements.namedItem(result.firstInvalid ?? "latitude");
+      if (target instanceof HTMLElement) target.focus();
+      return;
+    }
+    void onSave(result.input);
+  }
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>{block ? "Edit field block" : "Add field block"}</DialogTitle><DialogDescription>A field block needs a name and a map location. Crop batches are added after the field exists.</DialogDescription></DialogHeader>{serverError && !Object.keys(errors).length ? <Alert variant="danger" role="alert"><AlertTitle>Could not save field</AlertTitle><AlertDescription>{serverError}</AlertDescription></Alert> : null}<form noValidate className="grid gap-4" onSubmit={submit}><div className="grid gap-4 sm:grid-cols-2"><FieldGroup label="Field block name" required error={errors.name}><Input name="name" required aria-invalid={Boolean(errors.name)} defaultValue={block?.name ?? ""} /></FieldGroup><FieldGroup label="Area (hectares)" error={errors.areaHectares}><Input name="areaHectares" type="number" min="0.01" step="0.01" aria-invalid={Boolean(errors.areaHectares)} defaultValue={block?.areaHectares ?? ""} /></FieldGroup><FieldGroup label="Latitude" required error={errors.latitude}><Input name="latitude" type="number" min="-90" max="90" step="any" required aria-invalid={Boolean(errors.latitude)} defaultValue={block?.coordinates.latitude ?? ""} /></FieldGroup><FieldGroup label="Longitude" required error={errors.longitude}><Input name="longitude" type="number" min="-180" max="180" step="any" required aria-invalid={Boolean(errors.longitude)} defaultValue={block?.coordinates.longitude ?? ""} /></FieldGroup></div><FieldGroup label="Status"><Input name="status" defaultValue={block?.status ?? ""} placeholder="active" /></FieldGroup><FieldGroup label="Field notes"><Textarea name="notes" className="min-h-20" defaultValue={block?.notes ?? ""} /></FieldGroup><DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" isLoading={busy} loadingLabel="Saving field">{block ? "Save field" : "Add field"}</Button></DialogFooter></form></DialogContent></Dialog>;
+}
 
 function CropBatchDialog({ open, field, batch, busy, onOpenChange, onSave }: { open: boolean; field: FieldBlock | null; batch: CropBatch | null; busy: boolean; onOpenChange: (open: boolean) => void; onSave: (input: CropBatchInput) => Promise<void> }) { if (!field) return null; const selectedField = field; function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const form = new FormData(event.currentTarget); void onSave({ fieldBlockId: selectedField.fieldBlockId, variety: optional(form.get("variety")), plantingDate: optional(form.get("plantingDate")), notes: optional(form.get("notes")), ...(optional(form.get("status")) ? { status: String(form.get("status")).trim() } : {}) }); }
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>{batch ? "Edit crop batch" : "Add crop batch"}</DialogTitle><DialogDescription>This shallot crop batch will belong to {field.name}.</DialogDescription></DialogHeader><form className="grid gap-4" onSubmit={submit}><FieldGroup label="Variety"><Input name="variety" defaultValue={batch?.variety ?? ""} placeholder="Bima Brebes" /></FieldGroup><div className="grid gap-4 sm:grid-cols-2"><FieldGroup label="Planting date"><Input name="plantingDate" type="date" defaultValue={batch?.plantingDate ?? ""} /></FieldGroup><FieldGroup label="Status"><Input name="status" defaultValue={batch?.status ?? ""} placeholder="active" /></FieldGroup></div><FieldGroup label="Batch notes"><Textarea name="notes" className="min-h-20" defaultValue={batch?.notes ?? ""} /></FieldGroup><DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" isLoading={busy} loadingLabel="Saving crop batch">{batch ? "Save crop batch" : "Add crop batch"}</Button></DialogFooter></form></DialogContent></Dialog>; }
 
-function DeleteDialog({ target, busy, onOpenChange, onConfirm }: { target: DeleteTarget; busy: boolean; onOpenChange: (open: boolean) => void; onConfirm: () => Promise<void> }) { const field = target?.kind === "field"; return <AlertDialog open={Boolean(target)} onOpenChange={onOpenChange}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{field ? "Delete this field block?" : "Delete this crop batch?"}</AlertDialogTitle><AlertDialogDescription>{field ? "This permanently deletes the field block and all crop batches attached to it." : "This permanently deletes this crop batch."}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction asChild><Button type="button" variant="danger" isLoading={busy} loadingLabel="Deleting" onClick={() => void onConfirm()}>Delete</Button></AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>; }
+function DeleteDialog({ target, busy, onOpenChange, onConfirm }: { target: DeleteTarget; busy: boolean; onOpenChange: (open: boolean) => void; onConfirm: () => Promise<void> }) { const field = target?.kind === "field"; return <AlertDialog open={Boolean(target)} onOpenChange={onOpenChange}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{field ? "Delete this field block?" : "Delete this crop batch?"}</AlertDialogTitle><AlertDialogDescription>{field ? "This permanently deletes the field block, its crop batches, and every linked mission." : "This permanently deletes this crop batch and every linked mission."}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction asChild><Button type="button" variant="danger" isLoading={busy} loadingLabel="Deleting" onClick={() => void onConfirm()}>Delete</Button></AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>; }
 
 function WorkWindows({ windows, onChange }: { windows: WorkWindow[]; onChange: (windows: WorkWindow[]) => void }) { return <section className="grid gap-3 rounded-lg border bg-muted/35 p-4"><div><h3 className="font-bold">Work windows</h3><p className="mt-1 text-sm text-muted-foreground">Optional availability used for planning.</p></div>{windows.map((window) => <div key={window.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_2.75rem] gap-2"><select aria-label="Weekday" className="min-h-11 rounded-md border bg-card px-2" value={window.day} onChange={(event) => onChange(windows.map((item) => item.id === window.id ? { ...item, day: event.target.value as keyof WorkingHours } : item))}>{weekdays.map((day) => <option key={day} value={day}>{day[0].toUpperCase()}{day.slice(1)}</option>)}</select><Input aria-label="Start time" type="time" required value={window.start} onChange={(event) => onChange(windows.map((item) => item.id === window.id ? { ...item, start: event.target.value } : item))} /><Input aria-label="End time" type="time" required value={window.end} onChange={(event) => onChange(windows.map((item) => item.id === window.id ? { ...item, end: event.target.value } : item))} /><Button type="button" size="icon" variant="ghost" aria-label="Remove work window" onClick={() => onChange(windows.filter((item) => item.id !== window.id))}><Trash2 aria-hidden="true" /></Button></div>)}<Button type="button" size="sm" variant="outline" className="w-fit" icon={<Plus aria-hidden="true" />} onClick={() => onChange([...windows, { id: `window-${Date.now()}`, day: "monday", start: "", end: "" }])}>Add window</Button></section>; }
 function flattenHours(hours: WorkingHours | null) { return Object.entries(hours ?? {}).flatMap(([day, ranges]) => ranges?.map((range, index) => ({ id: `${day}-${index}`, day: day as keyof WorkingHours, ...range })) ?? []); }

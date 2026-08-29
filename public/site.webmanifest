@@ -9,9 +9,9 @@
   "theme_color": "#1D4428",
   "icons": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/images/tunas-ai-icon.png",
+      "sizes": "495x615",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

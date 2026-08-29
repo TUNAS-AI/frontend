@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LockKeyhole, Sprout } from "lucide-react";
+import { LockKeyhole } from "lucide-react";
 import { startGoogleSignIn } from "@/api/auth";
 import { Button } from "@/components/ui/Button";
 import type { AuthPageCopy } from "./types";
@@ -28,9 +28,18 @@ export function AuthView({ copy }: AuthViewProps) {
   }
 
   return (
-    <main className="auth-shell motion-enter grid min-h-dvh place-items-center bg-background p-4 text-foreground sm:p-6">
-      <section className="auth-frame grid w-full max-w-6xl overflow-hidden rounded-2xl border bg-card shadow-farm md:grid-cols-[1.05fr_1fr]" aria-label="TUNAS sign in">
-        <div className="auth-hero relative hidden min-h-[30rem] overflow-hidden md:block">
+    <main className="auth-shell motion-enter grid min-h-dvh bg-card text-foreground lg:grid-cols-[minmax(0,1.18fr)_minmax(28rem,0.82fr)]">
+      <section className="auth-mobile-hero relative h-32 overflow-hidden sm:h-40 lg:hidden" aria-hidden="true">
+        <img
+          src="/images/tunas-login-harvest-hero.png"
+          alt=""
+          className="h-full w-full object-cover object-[62%_54%]"
+          decoding="async"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-forest-700/25 via-transparent to-transparent" />
+      </section>
+
+      <section className="auth-hero relative hidden min-h-dvh overflow-hidden lg:block" aria-label="About TUNAS">
           <img
             src="/images/tunas-login-harvest-hero.png"
             alt="A farmer inspecting freshly harvested shallots in a field"
@@ -38,34 +47,47 @@ export function AuthView({ copy }: AuthViewProps) {
             fetchPriority="high"
             decoding="async"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-forest-700/80 via-black/55 to-black/30" aria-hidden="true" />
-          <div className="relative max-w-md px-8 py-10 lg:px-12 lg:py-14">
-            <div className="flex items-center gap-3">
-              <span className="grid h-11 w-11 place-items-center rounded-xl bg-forest-700 text-white shadow-lift"><Sprout className="h-5 w-5" aria-hidden="true" /></span>
-              <div>
-                <p className="font-extrabold tracking-[0.06em] text-white">{copy.brandName}</p>
-                <p className="mt-0.5 text-xs font-semibold text-white/80">{copy.brandTagline}</p>
-              </div>
+          <div className="absolute inset-0 bg-gradient-to-b from-forest-700/85 via-forest-700/48 to-[#132719]/84" aria-hidden="true" />
+          <div className="relative flex min-h-dvh flex-col px-10 py-10 xl:px-16 xl:py-14">
+            <div className="flex items-center gap-3" aria-label={copy.brandName}>
+              <img src="/images/tunas-ai-logo-white.png" alt="TUNAS" className="h-16 w-auto object-contain xl:h-20" />
             </div>
-            <p className="mt-12 text-4xl font-extrabold leading-[1.08] tracking-[-0.04em] text-white lg:text-5xl">{copy.headline}</p>
-            <p className="mt-4 max-w-sm text-base font-medium leading-7 text-white/80">{copy.description}</p>
+            <div className="mt-auto max-w-xl pb-5">
+              <p className="auth-hero-eyebrow text-sm font-bold tracking-[0.16em] text-leaf-100">HARVEST, WITH A CLEAR PLAN</p>
+              <h2 className="auth-hero-headline mt-4 text-balance text-5xl font-extrabold leading-[1.04] tracking-[-0.055em] text-white xl:text-6xl">
+                {copy.headline.split(/(harvest)/i).map((part, index) => part.toLowerCase() === "harvest" ? (
+                  <span key={index} className="bg-gradient-to-r from-leaf-100 via-leaf-300 to-[#88c978] bg-clip-text text-transparent">{part}</span>
+                ) : part)}
+              </h2>
+              <p className="auth-hero-description mt-5 max-w-md text-base font-medium leading-7 text-white/85">{copy.description}</p>
+            </div>
           </div>
-        </div>
+      </section>
 
-        <div className="auth-panel grid place-items-center px-6 py-10 sm:px-10">
-          <div className="w-full max-w-sm">
-            <div className="flex justify-center md:hidden"><span className="grid h-11 w-11 place-items-center rounded-xl bg-forest-700 text-white shadow-lift"><Sprout className="h-5 w-5" aria-hidden="true" /></span></div>
-            <div className="text-center">
-              <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-leaf-700 md:mt-0">Welcome back</p>
-              <h1 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] text-forest-700">{copy.loginTitle}</h1>
-              <p className="mt-3 text-sm font-medium leading-6 text-muted-foreground">{copy.loginDescription}</p>
-            </div>
-            <Button type="button" className="mt-9 min-h-14 w-full rounded-xl text-base" variant="outline" icon={<GoogleMark />} isLoading={busy} loadingLabel="Opening Google sign-in" onClick={signIn}>
-              {copy.googleSignInLabel}
-            </Button>
-            <p className="mt-7 flex items-center justify-center gap-2 text-center text-xs font-medium leading-5 text-muted-foreground"><LockKeyhole className="h-4 w-4 shrink-0 text-forest-700" aria-hidden="true" />{copy.privacyNote}</p>
+      <section className="auth-panel relative flex min-h-[calc(100dvh-8rem)] flex-col overflow-hidden bg-[#fbfaf5] px-6 py-8 sm:px-10 sm:py-10 lg:grid lg:min-h-dvh lg:place-items-center lg:px-14" aria-label="TUNAS sign in">
+        <div className="absolute right-0 top-0 h-72 w-72 translate-x-1/2 -translate-y-1/2 rounded-full bg-leaf-100/55 blur-3xl" aria-hidden="true" />
+        <div className="relative w-full max-w-md lg:-translate-y-8">
+          <div className="flex lg:hidden" aria-label={copy.brandName}>
+            <img src="/images/tunas-ai-logo.png" alt="TUNAS" className="h-16 w-auto object-contain" />
           </div>
+          <div className="mt-8 lg:mt-0">
+            <p className="text-xs font-bold tracking-[0.16em] text-leaf-700">WELCOME BACK</p>
+            <h1 className="mt-3 text-balance text-4xl font-extrabold tracking-[-0.05em] text-forest-700 sm:text-[2.75rem]">{copy.loginTitle}</h1>
+            <p className="mt-4 max-w-sm text-sm font-medium leading-6 text-muted-foreground">{copy.loginDescription}</p>
+          </div>
+          <Button type="button" className="mt-10 min-h-14 w-full rounded-xl text-base hover:-translate-y-0.5 hover:shadow-lift active:translate-y-0" variant="outline" icon={<GoogleMark />} isLoading={busy} loadingLabel="Opening Google sign-in" onClick={signIn}>
+            {copy.googleSignInLabel}
+          </Button>
+          <p className="mt-7 flex max-w-sm items-start gap-2 text-xs font-medium leading-5 text-muted-foreground"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-forest-700" aria-hidden="true" />{copy.privacyNote}</p>
         </div>
+        <aside className="auth-assistant pointer-events-none mt-10 flex w-full items-end justify-end lg:absolute lg:bottom-0 lg:right-0 lg:mt-0" aria-label="TUNAS AI assistant">
+          <div className="relative z-10 mr-4 -translate-y-5 sm:mr-6 sm:-translate-y-8 lg:mr-10 lg:-translate-y-12">
+            <div className="auth-chat-bubble relative max-w-[12.5rem] rounded-2xl rounded-br-sm bg-forest-600 px-4 py-3 text-xs leading-5 text-white shadow-lift ring-1 ring-forest-700/15 after:absolute after:-bottom-5 after:right-0 after:h-6 after:w-8 after:bg-forest-600 after:[clip-path:polygon(0_0,100%_0,100%_100%)] after:content-[''] sm:max-w-[20rem] sm:px-5 sm:py-4 sm:text-sm sm:leading-6">
+              <p className="font-semibold text-white">TUNAS AI helps turn field conditions into a plan you can review and approve.</p>
+            </div>
+          </div>
+          <img src="/images/mascot-peeking.png" alt="TUNAS AI mascot waving beside its message below the sign-in form" className="auth-mascot-peek -mr-8 -mb-8 h-28 w-auto object-contain sm:-mr-12 sm:-mb-10 sm:h-40 lg:-mr-3 lg:mb-0 lg:h-56" />
+        </aside>
       </section>
     </main>
   );
