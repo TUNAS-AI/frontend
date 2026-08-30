@@ -54,6 +54,7 @@ export function FarmView({ data, onRefresh }: FarmViewProps) {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState(false);
   const [deleteFarmOpen, setDeleteFarmOpen] = useState(false);
   const [deletingFarm, setDeletingFarm] = useState(false);
   const field = useMemo(() => data.fieldBlocks.find((item) => item.fieldBlockId === fieldId) ?? null, [data.fieldBlocks, fieldId]);
@@ -62,9 +63,9 @@ export function FarmView({ data, onRefresh }: FarmViewProps) {
   useEffect(() => { document.title = "Farm | TUNAS"; }, []);
 
   async function run(action: string, work: () => Promise<unknown>, success: string) {
-    setBusyAction(action); setError(null);
+    setBusyAction(action); setError(null); setDeleteError(false);
     try { await work(); await onRefresh(); setNotice(success); return true; }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "We could not save that change. Try again."); return false; }
+    catch (reason) { setDeleteError(action === "delete"); setError(reason instanceof Error ? reason.message : action === "delete" ? "We could not delete that item. Try again." : "We could not save that change. Try again."); return false; }
     finally { setBusyAction(null); }
   }
 
@@ -76,6 +77,7 @@ export function FarmView({ data, onRefresh }: FarmViewProps) {
       signOut();
       navigate("/login", { replace: true });
     } catch (reason) {
+      setDeleteError(true);
       setError(reason instanceof Error ? reason.message : "We could not delete your farm. Try again.");
       setDeleteFarmOpen(false);
     } finally {
@@ -105,7 +107,7 @@ export function FarmView({ data, onRefresh }: FarmViewProps) {
     </header>
 
     {notice ? <Alert variant="success" aria-live="polite"><Sprout aria-hidden="true" /><AlertTitle>Saved</AlertTitle><AlertDescription>{notice}</AlertDescription></Alert> : null}
-    {error ? <Alert variant="danger" role="alert"><AlertTitle>Could not save changes</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
+    {error ? <Alert variant="danger" role="alert"><AlertTitle>{deleteError ? "Could not delete" : "Could not save changes"}</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
 
     <section className="grid gap-4" aria-labelledby="field-blocks-heading">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Farm structure</p><h2 id="field-blocks-heading" className="mt-1 text-2xl font-extrabold tracking-tight text-primary">Field blocks</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground"><span className="block">Keep each growing area clearly separated.</span><span className="block">Manage its shallot crop batches here.</span></p></div><Button type="button" icon={<Plus aria-hidden="true" />} onClick={() => openFieldDialog("new-field")}>Add field block</Button></div>

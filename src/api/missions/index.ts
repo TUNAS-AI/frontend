@@ -16,6 +16,9 @@ export type MissionFacts = {
   plannedHarvestKg: number | null;
   plannedDriedKg: number | null;
   deadline: string | null;
+  harvestDurationHours: number | null;
+  estimatedHarvestableKg: number | null;
+  rainProtectionAvailable: boolean | null;
   availableWorkerCount: number | null;
   coveredDryingCapacityKg: number | null;
   notes: string | null;
@@ -27,8 +30,11 @@ export type MissionManualOptions = { timezone: string; fieldBlocks: Array<{ fiel
 export type MissionPreviewCandidate = { previewId: string; messages: MissionMessage[]; facts: MissionFacts; review: MissionFactReview[]; blocks: MissionFactBlock[]; manualOptions?: MissionManualOptions };
 export type MissionPreviewInterpretation = MissionPreviewCandidate;
 export type MissionPlanActivity = { title: string; description: string; scheduleType: "DAILY_WINDOW" | "DATE_RANGE"; startsOn: string; endsOn: string; windowStart: string | null; windowEnd: string | null; timezone: string; isConditional: boolean; stage: "HARVESTING" | "DRYING"; targetHarvestKg?: number | null };
-export type MissionPreviewPlan = { planId: string; name: string; summary: string; recommended: boolean; assumptions: string[]; risks: Record<string, string>; dryingEstimateDays: number; dryingEstimateReason: string; activities: MissionPlanActivity[] };
-export type MissionPlanPreview = { missionId: string; plans: MissionPreviewPlan[]; previewToken: string; expiresInSeconds: number };
+export type MissionPreviewPlan = { planId: string; name: string; summary: string; evidence: string[]; tradeoffs: string[]; assumptions: string[]; risks: Record<string, string>; dryingEstimateDays: number; dryingEstimateReason: string; activities: MissionPlanActivity[] };
+export type MissionPlanRecommendation = { planId: string; reasons: string[] };
+export type MissionPlanPreview =
+  | { status: "feasible"; missionId: string; candidates: MissionPreviewPlan[]; recommendation: MissionPlanRecommendation | null; previewToken: string; expiresInSeconds: number }
+  | { status: "infeasible"; missionId: string; blockers: string[] };
 export type MissionDeletionResult = { missionId: string; calendarCleanup: { removed: number; failed: number; failureReason?: string } };
 
 export type MissionStep = {
@@ -89,13 +95,29 @@ export type Mission = MissionListItem & {
   closeout: { plannedHarvestKg: number; plannedDriedKg: number; actualHarvestKg: number; actualDriedKg: number; harvestedAreaHectares: number | null; dryingCompleted: boolean; rejectedKg: number | null; notes: string | null; summary: { summary: string; lessons: string[] } | null } | null;
 };
 
-type ApiErrorBody = { error?: string };
+type ApiErrorBody = { error?: string; code?: string };
+
+export class MissionApiError extends Error {
+  readonly status: number;
+  readonly code: string | null;
+
+  constructor(message: string, status: number, code: string | null) {
+    super(message);
+    this.name = "MissionApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+export function isStaleMissionApproval(error: unknown) {
+  return error instanceof MissionApiError && ["PREVIEW_EXPIRED", "PREVIEW_STALE", "PREVIEW_TOKEN_INVALID"].includes(error.code ?? "");
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await apiFetch(path, options);
   if (response.ok) return response.json() as Promise<T>;
   const body = await response.json().catch((): ApiErrorBody => ({}));
-  throw new Error(body.error || "We could not load missions. Try again.");
+  throw new MissionApiError(body.error || "We could not load missions. Try again.", response.status, typeof body.code === "string" ? body.code : null);
 }
 
 export function getMissions() { return request<MissionListItem[]>("/api/missions"); }
@@ -122,6 +144,6 @@ export function interpretMissionReplan(id: string, input: { previewId?: string; 
 export function planMissionReplan(id: string, candidate: MissionPreviewCandidate) {
   return request<MissionPlanPreview>(`/api/missions/${id}/replan/plan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ candidate }) });
 }
-export function confirmMissionReplan(id: string, previewToken: string, planId: string, stage: "WAITING" | "HARVESTING" | "DRYING") {
-  return request<Mission>(`/api/missions/${id}/replan/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ previewToken, planId, stage }) });
+export function confirmMissionReplan(id: string, previewToken: string, planId: string) {
+  return request<Mission>(`/api/missions/${id}/replan/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ previewToken, planId }) });
 }

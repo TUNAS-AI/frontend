@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { advanceMissionStage, completeMissionStep, confirmMissionCloseout, confirmMissionPreview, confirmMissionReplan, deleteMission, getMission, getMissionReplanDraft, getMissions, interpretMissionPreview, interpretMissionReplan, planMissionPreview, planMissionReplan, saveMissionCloseout } from "../src/api/missions/index.ts";
+import { advanceMissionStage, completeMissionStep, confirmMissionCloseout, confirmMissionPreview, confirmMissionReplan, deleteMission, getMission, getMissionReplanDraft, getMissions, interpretMissionPreview, interpretMissionReplan, isStaleMissionApproval, MissionApiError, planMissionPreview, planMissionReplan, saveMissionCloseout } from "../src/api/missions/index.ts";
 
 test("loads the caller's mission list and an individual mission from the backend", async () => {
   const originalFetch = globalThis.fetch;
@@ -21,6 +21,38 @@ test("surfaces an actionable mission backend error", async () => {
   globalThis.fetch = async () => new Response(JSON.stringify({ error: "Mission not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
   try {
     await assert.rejects(getMission("missing"), /Mission not found/);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("preserves structured mission error status and code", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: "Preview expired", code: "PREVIEW_EXPIRED" }), { status: 409, headers: { "Content-Type": "application/json" } });
+  try {
+    await assert.rejects(confirmMissionPreview("expired", "plan-1"), (error: unknown) => {
+      assert.ok(error instanceof MissionApiError);
+      assert.equal(error.status, 409);
+      assert.equal(error.code, "PREVIEW_EXPIRED");
+      assert.equal(isStaleMissionApproval(error), true);
+      return true;
+    });
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("returns the discriminated feasible and infeasible planning responses unchanged", async () => {
+  const originalFetch = globalThis.fetch;
+  const responses = [
+    { status: "feasible", missionId: "mission-1", candidates: [], recommendation: null, previewToken: "token", expiresInSeconds: 1800 },
+    { status: "infeasible", missionId: "mission-1", blockers: ["Deadline cannot be met safely."] },
+  ];
+  globalThis.fetch = async () => new Response(JSON.stringify(responses.shift()), { status: 200, headers: { "Content-Type": "application/json" } });
+  const candidate = { previewId: "preview-1", messages: [], facts: { fieldBlockId: null, cropBatchIds: [], marketQuality: null, plannedHarvestKg: null, plannedDriedKg: null, deadline: null, availableWorkerCount: null, coveredDryingCapacityKg: null, notes: null, clarification: null }, review: [], blocks: [] };
+  try {
+    const feasible = await planMissionPreview(candidate);
+    assert.equal(feasible.status, "feasible");
+    if (feasible.status === "feasible") assert.deepEqual(feasible.candidates, []);
+    const infeasible = await planMissionPreview(candidate);
+    assert.equal(infeasible.status, "infeasible");
+    if (infeasible.status === "infeasible") assert.deepEqual(infeasible.blockers, ["Deadline cannot be met safely."]);
   } finally { globalThis.fetch = originalFetch; }
 });
 
@@ -66,8 +98,8 @@ test("loads and confirms a mission replacement plan", async () => {
     await getMissionReplanDraft("mission-1");
     await interpretMissionReplan("mission-1", { message: "Rain changed the plan" });
     await planMissionReplan("mission-1", candidate);
-    await confirmMissionReplan("mission-1", "token", "plan-1", "DRYING");
+  await confirmMissionReplan("mission-1", "token", "plan-1");
   } finally { globalThis.fetch = originalFetch; }
   assert.deepEqual(requests.map((request) => [new URL(request.url).pathname, request.init?.method]), [["/api/missions/mission-1/replan", undefined], ["/api/missions/mission-1/replan/interpret", "POST"], ["/api/missions/mission-1/replan/plan", "POST"], ["/api/missions/mission-1/replan/confirm", "POST"]]);
-  assert.deepEqual(JSON.parse(String(requests[3].init?.body)), { previewToken: "token", planId: "plan-1", stage: "DRYING" });
+  assert.deepEqual(JSON.parse(String(requests[3].init?.body)), { previewToken: "token", planId: "plan-1" });
 });

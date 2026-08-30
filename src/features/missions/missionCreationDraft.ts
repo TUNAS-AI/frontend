@@ -19,7 +19,8 @@ export function restoreMissionCreationDraft(): MissionCreationDraft {
     if (!value) return { candidate: null, planPreview: null, selectedPlanId: null };
     const parsed = JSON.parse(value) as MissionCreationDraft;
     if (!parsed || typeof parsed !== "object") throw new Error("Invalid mission draft");
-    return { candidate: restoreCandidate(parsed.candidate ?? null), planPreview: parsed.planPreview ?? null, selectedPlanId: parsed.selectedPlanId ?? null };
+    const planPreview = parsed.planPreview?.status === "feasible" || parsed.planPreview?.status === "infeasible" ? parsed.planPreview : null;
+    return { candidate: restoreCandidate(parsed.candidate ?? null), planPreview, selectedPlanId: planPreview?.status === "feasible" ? parsed.selectedPlanId ?? null : null };
   } catch { storage()?.removeItem(key); return { candidate: null, planPreview: null, selectedPlanId: null }; }
 }
 
@@ -32,7 +33,8 @@ export function restoreMissionEditDraft(missionId: string): MissionCreationDraft
     const value = storage()?.getItem(editKey(missionId));
     if (!value) return { candidate: null, planPreview: null, selectedPlanId: null };
     const parsed = JSON.parse(value) as MissionCreationDraft;
-    return { candidate: restoreCandidate(parsed.candidate ?? null), planPreview: parsed.planPreview ?? null, selectedPlanId: parsed.selectedPlanId ?? null };
+    const planPreview = parsed.planPreview?.status === "feasible" || parsed.planPreview?.status === "infeasible" ? parsed.planPreview : null;
+    return { candidate: restoreCandidate(parsed.candidate ?? null), planPreview, selectedPlanId: planPreview?.status === "feasible" ? parsed.selectedPlanId ?? null : null };
   } catch { storage()?.removeItem(editKey(missionId)); return { candidate: null, planPreview: null, selectedPlanId: null }; }
 }
 export function persistMissionEditDraft(missionId: string, draft: MissionCreationDraft) { try { storage()?.setItem(editKey(missionId), JSON.stringify(draft)); } catch { /* Draft recovery is best effort. */ } }
