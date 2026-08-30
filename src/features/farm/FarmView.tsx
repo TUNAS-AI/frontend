@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronDown, MapPinned, Pencil, Plus, Sprout, Trash2, UsersRound } from "lucide-react";
+import { CalendarDays, ChevronDown, MapPinned, MessageCircle, Pencil, Plus, Sprout, Trash2, UsersRound } from "lucide-react";
 import {
   type CropBatch,
   type CropBatchInput,
@@ -28,6 +28,7 @@ import { deleteFarm } from "@/api/farm/delete";
 import { useAuthSession } from "@/features/auth/useAuthSession";
 import { validateFieldBlockForm } from "@/features/farm/fieldBlockForm";
 import { useNavigate } from "react-router";
+import { beginTelegramConnection, getTelegramStatus, type TelegramStatus } from "@/api/telegram";
 
 type FarmViewProps = { data: FarmSnapshot; onRefresh: () => Promise<void> };
 type DialogState = "farm" | "new-field" | "edit-field" | "new-batch" | "edit-batch" | null;
@@ -57,16 +58,30 @@ export function FarmView({ data, onRefresh }: FarmViewProps) {
   const [deleteError, setDeleteError] = useState(false);
   const [deleteFarmOpen, setDeleteFarmOpen] = useState(false);
   const [deletingFarm, setDeletingFarm] = useState(false);
+  const [telegram, setTelegram] = useState<TelegramStatus | null>(null);
+  const [telegramBusy, setTelegramBusy] = useState(false);
+  const [telegramError, setTelegramError] = useState<string | null>(null);
   const field = useMemo(() => data.fieldBlocks.find((item) => item.fieldBlockId === fieldId) ?? null, [data.fieldBlocks, fieldId]);
   const batch = useMemo(() => data.cropBatches.find((item) => item.cropBatchId === batchId) ?? null, [data.cropBatches, batchId]);
 
   useEffect(() => { document.title = "Farm | TUNAS"; }, []);
+  useEffect(() => { let live = true; const load = () => void getTelegramStatus().then((status) => { if (live) { setTelegram(status); setTelegramError(null); } }).catch((reason) => { if (live) setTelegramError(reason instanceof Error ? reason.message : "Status Telegram tidak dapat dimuat."); }); load(); window.addEventListener("focus", load); return () => { live = false; window.removeEventListener("focus", load); }; }, []);
 
   async function run(action: string, work: () => Promise<unknown>, success: string) {
     setBusyAction(action); setError(null); setDeleteError(false);
     try { await work(); await onRefresh(); setNotice(success); return true; }
     catch (reason) { setDeleteError(action === "delete"); setError(reason instanceof Error ? reason.message : action === "delete" ? "We could not delete that item. Try again." : "We could not save that change. Try again."); return false; }
     finally { setBusyAction(null); }
+  }
+
+  async function connectTelegram() {
+    setTelegramBusy(true); setTelegramError(null);
+    try {
+      const result = await beginTelegramConnection();
+      setTelegram(result);
+      if (result.connectionUrl) window.open(result.connectionUrl, "_blank", "noopener,noreferrer");
+    } catch (reason) { setTelegramError(reason instanceof Error ? reason.message : "Koneksi Telegram tidak dapat dimulai."); }
+    finally { setTelegramBusy(false); }
   }
 
   async function removeFarm() {
@@ -109,7 +124,11 @@ export function FarmView({ data, onRefresh }: FarmViewProps) {
     {notice ? <Alert variant="success" aria-live="polite"><Sprout aria-hidden="true" /><AlertTitle>Saved</AlertTitle><AlertDescription>{notice}</AlertDescription></Alert> : null}
     {error ? <Alert variant="danger" role="alert"><AlertTitle>{deleteError ? "Could not delete" : "Could not save changes"}</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
 
+    <section className="grid gap-3 rounded-lg border bg-card px-4 py-4 shadow-sm sm:flex sm:flex-row sm:items-center sm:justify-between" aria-labelledby="telegram-heading"><div className="flex min-w-0 items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ai-50 text-ai-700"><MessageCircle aria-hidden="true" /></span><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-[0.14em] text-ai-700">Peringatan lapangan</p><h2 id="telegram-heading" className="font-extrabold">{telegram?.connected ? "Telegram terhubung" : "Hubungkan Telegram"}</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">{telegram?.connected ? `Peringatan misi dikirim ke ${telegram.username ? `@${telegram.username}` : telegram.firstName || "chat Telegram ini"}.` : "Hubungkan sekali untuk menerima peringatan hujan yang terkait dengan misi."}</p></div></div>{telegram?.connected ? <Badge variant="success">Terhubung</Badge> : <Button className="w-full sm:w-auto" type="button" size="sm" disabled={telegramBusy} isLoading={telegramBusy} loadingLabel="Membuka Telegram" onClick={() => void connectTelegram()} icon={<MessageCircle aria-hidden="true" />}>Hubungkan Telegram</Button>}</section>
+    {telegramError ? <Alert variant="danger" role="alert"><AlertTitle>Telegram perlu diperiksa</AlertTitle><AlertDescription>{telegramError}</AlertDescription></Alert> : null}
+
     <section className="grid gap-4" aria-labelledby="field-blocks-heading">
+
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Farm structure</p><h2 id="field-blocks-heading" className="mt-1 text-2xl font-extrabold tracking-tight text-primary">Field blocks</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground"><span className="block">Keep each growing area clearly separated.</span><span className="block">Manage its shallot crop batches here.</span></p></div><Button type="button" icon={<Plus aria-hidden="true" />} onClick={() => openFieldDialog("new-field")}>Add field block</Button></div>
       {data.fieldBlocks.length ? <div className="grid gap-3">{data.fieldBlocks.map((block) => <FieldBlockCard key={block.fieldBlockId} block={block} batches={batchesFor(block.fieldBlockId)} busyAction={busyAction} onEdit={() => openFieldDialog("edit-field", block)} onDelete={() => setDeleteTarget({ kind: "field", record: block })} onAddBatch={() => openBatchDialog("new-batch", block)} onEditBatch={(item) => openBatchDialog("edit-batch", block, item)} onDeleteBatch={(item) => setDeleteTarget({ kind: "batch", record: item })} />)}</div> : <EmptyFields onAdd={() => openFieldDialog("new-field")} />}
     </section>

@@ -24,6 +24,7 @@ export type AppNavigationItem<Id extends string = string> = {
 type AppShellProps<Id extends string> = {
   activeItem: Id;
   assistant?: ReactNode;
+  assistantMissionId?: string;
   children: ReactNode;
   context?: ReactNode;
   contextLoading?: boolean;
@@ -40,6 +41,7 @@ type AppShellProps<Id extends string> = {
 export function AppShell<Id extends string>({
   activeItem,
   assistant,
+  assistantMissionId,
   children,
   context,
   contextLoading = false,
@@ -169,7 +171,7 @@ export function AppShell<Id extends string>({
         open={mobileNavigationOpen}
       />
       {assistant}
-      <TunasAssistant />
+      <TunasAssistant assistantMissionId={assistantMissionId} />
     </div>
   );
 }
