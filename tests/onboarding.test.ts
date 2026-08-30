@@ -47,15 +47,19 @@ test("creates a complete demonstration onboarding draft without submitting it", 
   const draft = createDemoOnboardingDraft();
   const payload = buildOnboardingPayload(draft);
 
-  assert.equal(payload.farm.name, "Kebun Sari Tani Brebes");
-  assert.equal(payload.farm.defaultWorkerCount, 6);
-  assert.equal(payload.farm.defaultWorkingHours.monday?.length, 2);
-  assert.equal(payload.farm.defaultWorkingHours.saturday?.length, 2);
-  assert.equal(payload.fields.length, 3);
+  assert.equal(payload.farm.name, "Tani Makmur Brebes");
+  assert.equal(payload.farm.defaultWorkerCount, 4);
+  assert.deepEqual(payload.farm.defaultWorkingHours.monday, [{ start: "06:00", end: "16:00" }]);
+  assert.deepEqual(payload.farm.defaultWorkingHours.saturday, [{ start: "06:00", end: "16:00" }]);
+  assert.match(payload.farm.notes ?? "", /Pak Dedi, Pak Ujang, Bu Sari, and Pak Wawan/);
+  assert.match(payload.farm.notes ?? "", /outdoor drying/);
+  assert.match(payload.farm.notes ?? "", /tarpaulin available/);
+  assert.equal(payload.fields.length, 1);
   assert.equal(payload.fields[0].name, "Blok Utara");
   assert.deepEqual(payload.fields[0].coordinates, { latitude: -6.86712, longitude: 109.037109 });
   assert.equal(payload.fields[0].cropBatches[0].variety, "Bima Brebes");
   assert.match(payload.fields[0].cropBatches[0].notes ?? "", /READY/);
+  assert.match(payload.fields[0].cropBatches[0].notes ?? "", /650 kg/);
 
   const planted = new Date(`${payload.fields[0].cropBatches[0].plantingDate}T00:00:00`);
   const ageDays = Math.round((new Date().setHours(0, 0, 0, 0) - planted.getTime()) / 86_400_000);

@@ -80,15 +80,12 @@ export function createDemoOnboardingDraft(): { farm: FarmDraft; fields: FieldDra
   };
   return {
     farm: {
-      name: "Kebun Sari Tani Brebes",
+      name: "Tani Makmur Brebes",
       location: "Brebes, Central Java",
-      notes: "Ventilated covered drying shed holds about 120 kg. The pickup is available after 10:00. Farmer-reported field notes are authoritative.",
+      notes: "Workers: Pak Dedi, Pak Ujang, Bu Sari, and Pak Wawan. Drying method: outdoor drying. Rain protection: tarpaulin available.",
       timezone: "Asia/Jakarta",
-      defaultWorkerCount: "6",
-      workWindows: weekdays.slice(0, 6).flatMap((day) => [
-        { id: `window-demo-${day}-morning`, day, start: "06:00", end: "11:00" },
-        { id: `window-demo-${day}-afternoon`, day, start: "13:00", end: "16:00" },
-      ]),
+      defaultWorkerCount: "4",
+      workWindows: weekdays.slice(0, 6).map((day) => ({ id: `window-demo-${day}`, day, start: "06:00", end: "16:00" })),
     },
     fields: [
       {
@@ -97,26 +94,8 @@ export function createDemoOnboardingDraft(): { farm: FarmDraft; fields: FieldDra
         latitude: "-6.867120",
         longitude: "109.037109",
         areaHectares: "0.8",
-        notes: "Farmer reports dry access, bulbs ready to harvest, and approximately 100 kg harvestable. Prefer morning work.",
-        cropBatches: [{ id: "batch-demo-north-block-1", variety: "Bima Brebes", plantingDate: plantingDate(62), notes: "Farmer reports this batch READY for the buyer-order demo." }],
-      },
-      {
-        id: "field-demo-east-block",
-        name: "Blok Timur",
-        latitude: "-6.869210",
-        longitude: "109.040020",
-        areaHectares: "0.55",
-        notes: "Farmer reports this block is almost ready. Confirm readiness before any execution planning.",
-        cropBatches: [{ id: "batch-demo-east-block-1", variety: "Tajuk", plantingDate: plantingDate(54), notes: "Farmer-reported readiness: ALMOST_READY." }],
-      },
-      {
-        id: "field-demo-south-block",
-        name: "Blok Selatan",
-        latitude: "-6.871360",
-        longitude: "109.035410",
-        areaHectares: "0.65",
-        notes: "Farmer reports soft access after rain and that this block is not ready for harvest.",
-        cropBatches: [{ id: "batch-demo-south-block-1", variety: "Bima Brebes", plantingDate: plantingDate(42), notes: "Farmer-reported readiness: NOT_READY. Do not include in harvest plans." }],
+        notes: "Farmer-reported readiness: READY. Estimated harvestable quantity: 650 kg.",
+        cropBatches: [{ id: "batch-demo-north-block-1", variety: "Bima Brebes", plantingDate: plantingDate(62), notes: "Farmer-reported readiness: READY. Estimated harvestable quantity: 650 kg." }],
       },
     ],
   };

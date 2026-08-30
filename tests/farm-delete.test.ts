@@ -27,4 +27,5 @@ test("shows delete-specific failure wording while leaving deletion available to 
   const view = await readFile(new URL("../src/features/farm/FarmView.tsx", import.meta.url), "utf8");
   assert.match(view, /deleteError \? "Could not delete" : "Could not save changes"/);
   assert.match(view, /if \(saved\) setDeleteTarget\(null\)/);
+  assert.match(view, /must reconnect Telegram/);
 });

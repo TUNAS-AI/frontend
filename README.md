@@ -41,6 +41,11 @@ VITE_MISSION_TRANSPORT=demo
 
 The demo transport does not require a local backend for the current placeholder flows. `VITE_TUNAS_API_URL` is the preferred API setting; legacy `VITE_API_URL` remains supported for existing deployments.
 
+During onboarding, **Load demo farm** fills the canonical zero-mission demo
+state from `docs/tunas demo scenario.md`. It creates one READY Bima Brebes batch
+in Blok Utara with a 650 kg estimate and the documented workers, hours, outdoor
+drying, and tarpaulin context. It does not submit until onboarding is finished.
+
 Start Vite:
 
 ```powershell

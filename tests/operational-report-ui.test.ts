@@ -15,6 +15,8 @@ test("Farm links Telegram once and mission detail sends a scoped rain demo", asy
   const [farm, mission] = await Promise.all([read("../src/features/farm/FarmView.tsx"), read("../src/features/missions/MissionDetailView.tsx")]);
   assert.match(farm, /beginTelegramConnection/);
   assert.match(farm, /Hubungkan Telegram/);
+  assert.match(farm, /href=\{telegram\.botUrl\}/);
+  assert.match(farm, /rel="noopener noreferrer"/);
   assert.doesNotMatch(farm, /disconnectTelegram/);
   assert.match(mission, /createTunasTestAlert\(mission\.missionId/);
   assert.match(mission, /Kirim demo peringatan hujan/);
