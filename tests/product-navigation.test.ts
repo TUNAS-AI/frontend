@@ -2,14 +2,15 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("uses Farm as the landing route and excludes the retired Today surface", async () => {
+test("uses the public landing route while keeping Farm in product navigation", async () => {
   const [routes, navigation, shell] = await Promise.all([
     readFile(new URL("../src/routes/AppRoutes.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/components/app/productNavigation.ts", import.meta.url), "utf8"),
     readFile(new URL("../src/components/app/AppShell.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(routes, /<Route index element=\{<Navigate to="\/farm" replace \/>\} \/>/);
+  assert.match(routes, /<Route index element=\{<Navigate to="\/landing" replace \/>\} \/>/);
+  assert.match(routes, /path="\/landing" element=\{<LandingRoute \/>\}/);
   assert.doesNotMatch(routes, /today/i);
   assert.match(navigation, /\{ id: "farm"[\s\S]*\{ id: "missions"[\s\S]*\{ id: "calendar"/);
   assert.doesNotMatch(navigation, /today/i);

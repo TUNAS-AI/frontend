@@ -14,11 +14,14 @@ const CalendarRoute = lazy(() => import("./CalendarRoute").then(({ CalendarRoute
 const AuthRoute = lazy(() => import("./AuthRoute").then(({ AuthRoute: Route }) => ({ default: Route })));
 const AuthCallbackRoute = lazy(() => import("./AuthCallbackRoute").then(({ AuthCallbackRoute: Route }) => ({ default: Route })));
 const OnboardingRoute = lazy(() => import("./OnboardingRoute").then(({ OnboardingRoute: Route }) => ({ default: Route })));
+const LandingRoute = lazy(() => import("./LandingRoute").then(({ LandingRoute: Route }) => ({ default: Route })));
 
 export function AppRoutes() {
   return (
     <Suspense fallback={<RouteNotice label="Loading TUNAS…" />}>
       <Routes>
+        <Route index element={<Navigate to="/landing" replace />} />
+        <Route path="/landing" element={<LandingRoute />} />
         <Route path="/auth/callback" element={<AuthCallbackRoute />} />
         <Route element={<AnonymousOnlyRoute />}>
           <Route path="/login" element={<AuthRoute />} />
@@ -27,7 +30,6 @@ export function AppRoutes() {
           <Route path="/onboarding" element={<OnboardingRoute />} />
         </Route>
         <Route element={<FarmRequiredRoute />}>
-          <Route index element={<Navigate to="/farm" replace />} />
           <Route path="/calendar" element={<CalendarRoute />} />
           <Route path="/missions" element={<MissionsRoute />} />
           <Route path="/missions/new" element={<NewMissionRoute />} />
