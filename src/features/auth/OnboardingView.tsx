@@ -163,7 +163,7 @@ export function OnboardingView({ copy, session, onComplete }: OnboardingViewProp
             <footer className="mt-6 flex items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="outline" icon={<ArrowLeft aria-hidden="true" />} disabled={stepIndex === 0 || busy} onClick={back}>Back</Button>
-                <Button type="button" variant="outline" disabled={busy} onClick={fillDemoData}>Fill demo data</Button>
+                <Button type="button" variant="outline" disabled={busy} onClick={fillDemoData}>Load demo farm</Button>
               </div>
               <Button type="submit" trailingIcon={step === "calendar" ? undefined : <ArrowRight aria-hidden="true" />} isLoading={busy} loadingLabel="Saving farm setup">{step === "calendar" ? copy.finishLabel : "Next"}</Button>
             </footer>

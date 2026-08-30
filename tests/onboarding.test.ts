@@ -47,8 +47,17 @@ test("creates a complete demonstration onboarding draft without submitting it", 
   const draft = createDemoOnboardingDraft();
   const payload = buildOnboardingPayload(draft);
 
-  assert.equal(payload.farm.name, "Kebun Sari Tani");
-  assert.equal(payload.fields.length, 1);
-  assert.equal(payload.fields[0].name, "North Block");
+  assert.equal(payload.farm.name, "Kebun Sari Tani Brebes");
+  assert.equal(payload.farm.defaultWorkerCount, 6);
+  assert.equal(payload.farm.defaultWorkingHours.monday?.length, 2);
+  assert.equal(payload.farm.defaultWorkingHours.saturday?.length, 2);
+  assert.equal(payload.fields.length, 3);
+  assert.equal(payload.fields[0].name, "Blok Utara");
+  assert.deepEqual(payload.fields[0].coordinates, { latitude: -6.86712, longitude: 109.037109 });
   assert.equal(payload.fields[0].cropBatches[0].variety, "Bima Brebes");
+  assert.match(payload.fields[0].cropBatches[0].notes ?? "", /READY/);
+
+  const planted = new Date(`${payload.fields[0].cropBatches[0].plantingDate}T00:00:00`);
+  const ageDays = Math.round((new Date().setHours(0, 0, 0, 0) - planted.getTime()) / 86_400_000);
+  assert.ok(ageDays >= 61 && ageDays <= 63, `expected a relative planting age near 62 days, received ${ageDays}`);
 });
