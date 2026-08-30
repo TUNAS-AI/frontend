@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { actOnTunasMessage, approveTunasPendingAction, checkTunasForecast, createTunasTestAlert, getTunasInteractions, getTunasMessages, getTunasMissionReports, getTunasMissionTimeline, markTunasRead, rejectTunasPendingAction, sendTunasInteraction, sendTunasReport } from "../src/api/tunas/index.ts";
+import { actOnTunasMessage, approveTunasPendingAction, cancelTunasPendingAction, checkTunasForecast, createTunasTestAlert, getTunasInteractions, getTunasMessages, getTunasMissionReports, getTunasMissionTimeline, markTunasRead, rejectTunasPendingAction, sendTunasInteraction, sendTunasReport } from "../src/api/tunas/index.ts";
 
 test("uses the persisted Tunas alert endpoints", async () => {
   const originalFetch = globalThis.fetch; const requests: Array<{ url: string; init?: RequestInit }> = [];
@@ -15,11 +15,11 @@ test("uses the persisted Tunas alert endpoints", async () => {
 test("uses the operational interaction and timeline endpoints", async () => {
   const originalFetch = globalThis.fetch; const requests: Array<{ url: string; init?: RequestInit }> = [];
   globalThis.fetch = async (input, init) => { requests.push({ url: String(input), init }); return new Response(JSON.stringify({ interactions: [], events: [], pendingAction: null }), { status: 200, headers: { "Content-Type": "application/json" } }); };
-  try { await getTunasInteractions(); await sendTunasInteraction("Move harvest", "submission-1", "mission-1"); await approveTunasPendingAction("pending/1"); await rejectTunasPendingAction("pending/1"); await getTunasMissionTimeline("mission/1"); await getTunasMissionReports("mission/1"); }
+  try { await getTunasInteractions(); await sendTunasInteraction("Move harvest", "submission-1", "mission-1", ["Move it later"]); await approveTunasPendingAction("pending/1"); await rejectTunasPendingAction("pending/1"); await cancelTunasPendingAction("pending/1"); await getTunasMissionTimeline("mission/1"); await getTunasMissionReports("mission/1"); }
   finally { globalThis.fetch = originalFetch; }
-  assert.deepEqual(requests.map((request) => [new URL(request.url).pathname, request.init?.method]), [["/api/tunas/interactions", undefined], ["/api/tunas/interactions", "POST"], ["/api/tunas/pending/pending%2F1/approve", "POST"], ["/api/tunas/pending/pending%2F1/reject", "POST"], ["/api/tunas/missions/mission%2F1/timeline", undefined], ["/api/tunas/missions/mission%2F1/reports", undefined]]);
+  assert.deepEqual(requests.map((request) => [new URL(request.url).pathname, request.init?.method]), [["/api/tunas/interactions", undefined], ["/api/tunas/interactions", "POST"], ["/api/tunas/pending/pending%2F1/approve", "POST"], ["/api/tunas/pending/pending%2F1/reject", "POST"], ["/api/tunas/pending/pending%2F1/cancel", "POST"], ["/api/tunas/missions/mission%2F1/timeline", undefined], ["/api/tunas/missions/mission%2F1/reports", undefined]]);
   assert.equal(new Headers(requests[1].init?.headers).get("Idempotency-Key"), "submission-1");
-  assert.deepEqual(JSON.parse(String(requests[1].init?.body)), { message: "Move harvest", missionId: "mission-1", channel: "web", externalMessageId: "submission-1" });
+  assert.deepEqual(JSON.parse(String(requests[1].init?.body)), { message: "Move harvest", missionId: "mission-1", replanContext: ["Move it later"], channel: "web", externalMessageId: "submission-1" });
 });
 
 test("sends structured operational reports with mission scope and idempotency", async () => {

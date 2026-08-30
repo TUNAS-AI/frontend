@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router";
 import {
   actOnTunasMessage,
   approveTunasPendingAction,
+  cancelTunasPendingAction,
   getTunasInteractions,
   getTunasMessages,
   markTunasRead,
@@ -15,6 +16,7 @@ import {
   type TunasMessage,
   type TunasState,
 } from "@/api/tunas";
+import { confirmMissionReplan } from "@/api/missions";
 import { Button } from "@/components/ui/Button";
 import { ChatBubble } from "@/components/ui/ChatBubble";
 import { Badge, type BadgeProps } from "@/components/ui/Badge";
@@ -168,6 +170,8 @@ function GlobalTunasAssistant({ assistantMissionId }: { assistantMissionId?: str
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<TunasState>(empty);
   const [interactions, setInteractions] = useState<TunasInteraction[]>([]);
+  const [conversation, setConversation] = useState<Array<AssistantMessage & { response?: TunasInteractionState }>>([]);
+  const [replanContext, setReplanContext] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState<string | null>(null);
@@ -177,20 +181,33 @@ function GlobalTunasAssistant({ assistantMissionId }: { assistantMissionId?: str
   const visibleInteractions = interactions.filter((interaction) => !assistantMissionId || interaction.response.missionId === assistantMissionId);
   const visibleMessages = state.messages.filter((message) => !assistantMissionId || message.missionId === assistantMissionId);
 
+  async function refresh() {
+    const [messages, history] = await Promise.allSettled([getTunasMessages(), getTunasInteractions()]);
+    if (messages.status === "fulfilled") setState(messages.value);
+    if (history.status === "fulfilled") setInteractions(history.value.interactions);
+    if (messages.status === "rejected" && history.status === "rejected") setError("Tunas AI could not load your operational workflow. Try again.");
+  }
+
   useEffect(() => {
     let live = true;
-    void Promise.allSettled([getTunasMessages(), getTunasInteractions()])
-      .then(([messages, history]) => { if (!live) return; if (messages.status === "fulfilled") setState(messages.value); if (history.status === "fulfilled") setInteractions(history.value.interactions); if (messages.status === "rejected" && history.status === "rejected") setError("Tunas AI could not load your operational history. Try again."); })
+    void refresh()
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, []);
 
   useEffect(() => {
+    if (!open) return;
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, 25_000);
+    return () => window.clearInterval(timer);
+  }, [open]);
+
+  useEffect(() => {
     if (open) scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [open, state.messages, interactions]);
+  }, [open, state.messages, interactions, conversation]);
 
   async function show() {
     setOpen(true);
+    void refresh();
     try {
       setState(await markTunasRead());
     } catch {
@@ -203,13 +220,16 @@ function GlobalTunasAssistant({ assistantMissionId }: { assistantMissionId?: str
     const message = draft.trim();
     if (!message || working) return;
     const externalMessageId = crypto.randomUUID();
+    const userMessage = { id: externalMessageId, role: "user" as const, text: message };
+    setConversation((current) => [...current, userMessage]);
+    setDraft("");
     setWorking(`send:${externalMessageId}`);
     setError(null);
     try {
-      const response = await sendTunasInteraction(message, externalMessageId, assistantMissionId);
-      setDraft("");
-      try { setInteractions((await getTunasInteractions()).interactions); }
-      catch { setInteractions((current) => [...current, { operationalInteractionId: response.interactionId, message, response, createdAt: new Date().toISOString(), completedAt: null }]); }
+      const response = await sendTunasInteraction(message, externalMessageId, assistantMissionId, replanContext);
+      setConversation((current) => [...current, { id: response.interactionId, role: "assistant", text: response.message, response }]);
+      setReplanContext(response.replan?.status === "clarification" ? [...replanContext, message].slice(-8) : []);
+      if (!response.transient) await refresh();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Tunas AI could not send your request. Try again.");
     } finally {
@@ -226,6 +246,27 @@ function GlobalTunasAssistant({ assistantMissionId }: { assistantMissionId?: str
       setInteractions((current) => current.map((item) => item.response.interactionId === response.interactionId ? { ...item, response: updated, completedAt: new Date().toISOString() } : item));
       try { setInteractions((await getTunasInteractions()).interactions); } catch { /* Keep the confirmed local state. */ }
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Tunas AI could not save that decision. Try again."); }
+    finally { setWorking(null); }
+  }
+
+  async function cancel(response: TunasInteractionState) {
+    const pending = response.pendingAction;
+    if (!pending || working) return;
+    setWorking(`${pending.pendingActionId}:cancel`); setError(null);
+    try { const updated = await cancelTunasPendingAction(pending.pendingActionId); setConversation((current) => [...current, { id: crypto.randomUUID(), role: "assistant", text: updated.message, response: updated }]); await refresh(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Tunas AI could not cancel that workflow."); }
+    finally { setWorking(null); }
+  }
+
+  async function approveReplan(response: TunasInteractionState) {
+    const replan = response.replan;
+    if (!replan || replan.status !== "feasible" || working) return;
+    setWorking(`${response.interactionId}:replan`); setError(null);
+    try {
+      const result = await confirmMissionReplan(replan.missionId, replan.previewToken, replan.recommendation.planId);
+      const calendar = result.calendarSync.status === "SYNCED" ? " Google Calendar is synced." : result.calendarSync.status === "NOT_CONNECTED" ? " Google Calendar is not connected." : " The mission is saved; check Calendar sync status if needed.";
+      setConversation((current) => [...current, { id: crypto.randomUUID(), role: "assistant", text: `Replan approved. The mission schedule is updated.${calendar}` }]);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Tunas AI could not approve that replan."); }
     finally { setWorking(null); }
   }
 
@@ -246,28 +287,29 @@ function GlobalTunasAssistant({ assistantMissionId }: { assistantMissionId?: str
   }
 
   return (
-    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] right-3 z-40 sm:bottom-5 sm:right-5 lg:bottom-6 lg:right-6">
+    <div className={open ? "fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 sm:inset-x-auto sm:bottom-5 sm:right-5 lg:inset-y-5 lg:right-5" : "fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] right-3 z-40 sm:bottom-5 sm:right-5"}>
       {open ? (
-        <section aria-label="Tunas AI" className="tunas-assistant-window motion-enter flex h-[min(430px,calc(100dvh-8rem))] w-[min(390px,calc(100vw-1.5rem))] flex-col overflow-visible rounded-xl border border-ai-100 bg-card shadow-lift" onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); }}>
+        <section aria-label="Tunas AI" className="tunas-assistant-window motion-enter flex h-[60dvh] min-h-[25rem] w-full max-w-full flex-col overflow-hidden rounded-2xl border border-ai-100 bg-card shadow-lift sm:w-[min(440px,calc(100vw-2.5rem))] lg:h-full lg:min-h-0" onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); }}>
           <header className="tunas-assistant-header relative z-10 flex min-h-16 items-center justify-between gap-3 rounded-t-xl bg-ai-700 py-2 pr-4 text-white">
             <img src={mascot.image} alt={mascot.alt} className="tunas-assistant-mascot pointer-events-none absolute z-20 object-contain object-bottom" />
             <div className="min-w-0">
                 <h2 className="sr-only">Tunas AI</h2>
-                <p className="text-sm font-semibold leading-5 text-white/90">I'm Tunas, your operational mission support.</p>
+                 <p className="text-sm font-semibold leading-5 text-white/90">Tunas AI</p><p className="text-xs text-white/70">Ask, report, or replan without leaving the farm.</p>
             </div>
             <Button type="button" size="icon" variant="ghost" className="border-transparent text-white hover:bg-white/15 hover:text-white" aria-label="Close Tunas AI" onClick={() => setOpen(false)}><X aria-hidden="true" /></Button>
           </header>
 
-          <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4" aria-live="polite" aria-busy={loading || Boolean(working)}>
+          <div ref={scrollRef} className="tunas-chat-scroll min-h-0 min-w-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto p-4" aria-live="polite" aria-busy={loading || Boolean(working)}>
             <p className="sr-only" role="status">{mascot.label}. {mascot.detail}</p>
              {assistantMissionId ? <Badge variant="ai">Current mission context</Badge> : null}
              {loading ? <ChatBubble variant="assistant"><TunasTypingIndicator className="text-ai-700" /></ChatBubble> : null}
              {!loading ? visibleInteractions.map((interaction) => <Interaction key={interaction.operationalInteractionId} interaction={interaction} working={working} onDecide={decide} />) : null}
+             {conversation.map((message) => <div key={message.id} className="grid min-w-0 gap-2"><ChatBubble variant={message.role}>{message.text}</ChatBubble>{message.response ? <ResponseActions response={message.response} working={working} onCancel={cancel} onReplan={approveReplan} /> : null}</div>)}
              {!loading && visibleMessages.length ? visibleMessages.map((message) => (
-              <div key={message.tunasMessageId} className="grid gap-2">
+               <div key={message.tunasMessageId} className="grid min-w-0 gap-2">
                 <ChatBubble variant={message.role === "farmer" ? "user" : "assistant"}>{message.content}</ChatBubble>
                 {message.mission ? (
-                  <Link to={`/missions/${message.mission.missionId}`} aria-label={`View related mission: ${message.mission.originalMessage}`} className="grid gap-1 rounded-md border border-ai-100 bg-ai-50 px-3 py-2 text-left text-sm transition-colors hover:bg-ai-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/30">
+                  <Link to={`/missions/${message.mission.missionId}`} aria-label={`View related mission: ${message.mission.originalMessage}`} className="grid min-w-0 max-w-full gap-1 overflow-hidden rounded-md border border-ai-100 bg-ai-50 px-3 py-2 text-left text-sm transition-colors hover:bg-ai-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/30">
                     <span className="flex items-center gap-2 font-bold text-ai-700"><ClipboardList className="h-4 w-4" aria-hidden="true" />Related mission</span>
                     <span className="truncate font-medium text-foreground">{message.mission.originalMessage}</span>
                     <span className="text-xs text-muted-foreground">{message.mission.status} · {message.mission.stage}</span>
@@ -276,11 +318,11 @@ function GlobalTunasAssistant({ assistantMissionId }: { assistantMissionId?: str
                 {message.actions.length ? <div className="flex flex-wrap gap-2">{message.actions.map((item) => <Button key={item.id} type="button" size="sm" variant={item.id === "keep" ? "outline" : "primary"} disabled={working !== null} isLoading={working === `${message.tunasMessageId}:${item.id}`} loadingLabel="Saving" onClick={() => void act(message, item)}>{item.label}</Button>)}</div> : null}
               </div>
             )) : null}
-             {!loading && !visibleMessages.length && !visibleInteractions.length ? <p className="rounded-md border border-dashed p-4 text-sm leading-6 text-muted-foreground">Ask Tunas for operational help with this mission, schedule, or field decision.</p> : null}
+             {!loading && !visibleMessages.length && !visibleInteractions.length && !conversation.length ? <div className="rounded-xl border border-dashed border-ai-200 bg-ai-50/60 p-4 text-sm leading-6 text-muted-foreground"><p className="font-bold text-ai-700">What can Tunas do?</p><p className="mt-1">Ask about your farm, report field conditions, check mission status, or request a schedule change.</p></div> : null}
             {error ? <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert">{error}</p> : null}
           </div>
 
-          <form className="flex gap-2 rounded-b-xl border-t bg-muted/30 p-3" onSubmit={(event) => void send(event)}><label className="sr-only" htmlFor={inputId}>Ask Tunas AI for operational help</label><Textarea id={inputId} rows={2} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask about a mission or operational change…" disabled={working !== null} /><Button type="submit" size="icon" disabled={!draft.trim() || working !== null} isLoading={working?.startsWith("send:")} loadingLabel="Sending request" aria-label="Send request"><Send aria-hidden="true" /></Button></form>
+          <form className="flex gap-2 rounded-b-2xl border-t bg-muted/30 p-3" onSubmit={(event) => void send(event)}><label className="sr-only" htmlFor={inputId}>Ask Tunas AI for operational help</label><Textarea id={inputId} rows={2} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask, report a change, or request a replan…" disabled={working !== null} /><Button type="submit" size="icon" disabled={!draft.trim() || working !== null} isLoading={working?.startsWith("send:")} loadingLabel="Sending request" aria-label="Send request"><Send aria-hidden="true" /></Button></form>
         </section>
       ) : (
         <Button type="button" size="icon" className="relative h-12 w-12 min-h-12 rounded-full border-ai-700 bg-ai-700 p-0 text-white shadow-lift hover:bg-ai-700/90 sm:h-14 sm:w-auto sm:min-h-14 sm:px-6" aria-label={`Open Tunas AI${state.unreadCount ? `, ${state.unreadCount} unread alerts` : ""}`} aria-expanded="false" onClick={() => void show()}>
@@ -292,6 +334,16 @@ function GlobalTunasAssistant({ assistantMissionId }: { assistantMissionId?: str
       )}
     </div>
   );
+}
+
+function ResponseActions({ response, working, onCancel, onReplan }: { response: TunasInteractionState; working: string | null; onCancel: (response: TunasInteractionState) => Promise<void>; onReplan: (response: TunasInteractionState) => Promise<void> }) {
+  const replan = response.replan;
+  if (response.pendingAction?.kind === "CLARIFICATION" && response.pendingAction.status === "PENDING") return <Button type="button" size="sm" variant="outline" className="w-fit" disabled={working !== null} onClick={() => void onCancel(response)}>Cancel report</Button>;
+  if (!replan) return null;
+  if (replan.status === "infeasible") return <p className="rounded-lg border border-risk-200 bg-risk-50 p-3 text-sm">{replan.blockers.join(" ")}</p>;
+  if (replan.status !== "feasible") return null;
+  const plan = replan.candidates.find((item) => item.planId === replan.recommendation.planId);
+  return <div className="grid gap-3 rounded-xl border border-ai-200 bg-ai-50 p-3 text-sm"><div><p className="font-bold text-ai-700">Proposed schedule</p>{replan.changes?.map((change) => <p key={change.title} className="mt-1 text-muted-foreground">{change.title}: {change.after.date}{change.after.start ? `, ${change.after.start}` : ""}</p>)}</div>{plan ? <div className="grid gap-1">{plan.activities.map((activity) => <p key={`${activity.title}-${activity.startsOn}`}>{activity.title} · {new Date(activity.startsOn).toLocaleDateString()}</p>)}</div> : null}<p className="text-muted-foreground">{replan.recommendation.reasons.map((reason) => reason.text).join(" ")}</p><div className="flex gap-2"><Button type="button" size="sm" disabled={working !== null} isLoading={working === `${response.interactionId}:replan`} onClick={() => void onReplan(response)}>Approve replan</Button></div></div>;
 }
 
 function Interaction({ interaction, working, onDecide }: { interaction: TunasInteraction; working: string | null; onDecide: (response: TunasInteractionState, decision: "approve" | "reject") => Promise<void> }) {

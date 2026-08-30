@@ -20,7 +20,8 @@ export type OperationalReport =
 export type TunasImpact = { level: "NONE" | "MATERIAL"; reasons: string[]; replanSupported: boolean };
 export type TunasSemanticAction = { type: "APPROVE_REPORT" | "REJECT_REPORT" | "OPEN_REPLAN"; missionId: string; pendingActionId?: string };
 export type TunasPendingAction = { pendingActionId: string; kind: string; status: string; preview: { before?: unknown; after?: unknown; question?: string; report?: OperationalReport }; actions?: { approve: string; reject: string } };
-export type TunasInteractionState = { threadId: string; interactionId: string; missionId: string | null; trigger: string; message: string; pendingAction: TunasPendingAction | null; impact?: TunasImpact; semanticActions?: TunasSemanticAction[] };
+export type TunasReplan = { status: "clarification"; missionId: string; question: string } | { status: "infeasible"; missionId: string; blockers: string[] } | { status: "feasible"; missionId: string; previewToken: string; recommendation: { planId: string; reasons: Array<{ text: string }> }; candidates: Array<{ planId: string; activities: Array<{ title: string; startsOn: string; windowStart: string | null; windowEnd: string | null }> }>; changes?: Array<{ title: string; before: { date: string; start: string | null; end: string | null }; after: { date: string; start: string | null; end: string | null } }> };
+export type TunasInteractionState = { threadId: string; interactionId: string; missionId: string | null; trigger: string; message: string; pendingAction: TunasPendingAction | null; impact?: TunasImpact; semanticActions?: TunasSemanticAction[]; transient?: boolean; replan?: TunasReplan };
 export type TunasInteraction = { operationalInteractionId: string; message: string; response: TunasInteractionState; createdAt: string; completedAt: string | null };
 export type TunasTimelineEvent = { operationalEventId: string; actor: string; channel: string; type: string; before: unknown; after: unknown; metadata: unknown; createdAt: string; pendingActionId?: string | null };
 export type TunasMissionTimeline = { missionId: string; events: TunasTimelineEvent[] };
@@ -43,7 +44,7 @@ export type OperationalReportRecord = {
 };
 export type TunasMissionReports = { missionId: string; reports: OperationalReportRecord[] };
 export type TunasInteractionInput =
-  | { message: string; missionId?: string; channel: "web"; externalMessageId: string }
+  | { message: string; missionId?: string; channel: "web"; externalMessageId: string; replanContext?: string[] }
   | { report: OperationalReport; missionId: string; channel: "web"; externalMessageId: string };
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -60,9 +61,10 @@ export function createTunasTestAlert(missionId: string, scenario: "drying-rain" 
 export function actOnTunasMessage(messageId: string, action: TunasAction["id"]) { return request<{ messages: TunasState; navigation: TunasNavigation }>(`/api/tunas/actions/${messageId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) }); }
 export function getTunasInteractions() { return request<{ interactions: TunasInteraction[] }>("/api/tunas/interactions"); }
 function postTunasInteraction(input: TunasInteractionInput) { return request<TunasInteractionState>("/api/tunas/interactions", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": input.externalMessageId }, body: JSON.stringify(input) }); }
-export function sendTunasInteraction(message: string, externalMessageId: string, missionId?: string) { return postTunasInteraction({ message, ...(missionId ? { missionId } : {}), channel: "web", externalMessageId }); }
+export function sendTunasInteraction(message: string, externalMessageId: string, missionId?: string, replanContext?: string[]) { return postTunasInteraction({ message, ...(missionId ? { missionId } : {}), ...(replanContext?.length ? { replanContext } : {}), channel: "web", externalMessageId }); }
 export function sendTunasReport(missionId: string, report: OperationalReport, externalMessageId: string) { return postTunasInteraction({ report, missionId, channel: "web", externalMessageId }); }
 export function approveTunasPendingAction(pendingActionId: string) { return request<TunasInteractionState>(`/api/tunas/pending/${encodeURIComponent(pendingActionId)}/approve`, { method: "POST" }); }
 export function rejectTunasPendingAction(pendingActionId: string) { return request<TunasInteractionState>(`/api/tunas/pending/${encodeURIComponent(pendingActionId)}/reject`, { method: "POST" }); }
+export function cancelTunasPendingAction(pendingActionId: string) { return request<TunasInteractionState>(`/api/tunas/pending/${encodeURIComponent(pendingActionId)}/cancel`, { method: "POST" }); }
 export function getTunasMissionTimeline(missionId: string) { return request<TunasMissionTimeline>(`/api/tunas/missions/${encodeURIComponent(missionId)}/timeline`); }
 export function getTunasMissionReports(missionId: string) { return request<TunasMissionReports>(`/api/tunas/missions/${encodeURIComponent(missionId)}/reports`); }

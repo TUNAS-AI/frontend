@@ -40,7 +40,6 @@ type AppShellProps<Id extends string> = {
 
 export function AppShell<Id extends string>({
   activeItem,
-  assistant,
   assistantMissionId,
   children,
   context,
@@ -173,7 +172,6 @@ export function AppShell<Id extends string>({
         onSignOut={onSignOut}
         open={mobileNavigationOpen}
       />
-      {assistant}
       <TunasAssistant assistantMissionId={assistantMissionId} />
     </div>
   );

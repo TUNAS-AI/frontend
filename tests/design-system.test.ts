@@ -34,7 +34,7 @@ test("provides shared motion and skeleton loading primitives", async () => {
   assert.match(missionDetailRoute, /<LoadingShell/);
 });
 
-test("uses a compact TUNAS launcher and typing indicators while assistant context loads", async () => {
+test("uses a floating responsive TUNAS panel and typing indicators while context loads", async () => {
   const [assistant, styles] = await Promise.all([
     readFile(new URL("../src/components/app/TunasAssistant.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/styles.css", import.meta.url), "utf8"),
@@ -44,10 +44,23 @@ test("uses a compact TUNAS launcher and typing indicators while assistant contex
   assert.match(assistant, /\/images\/tunas-ai-icon-white\.png/);
   assert.doesNotMatch(assistant, /Sparkles/);
   assert.match(assistant, /sm:h-14 sm:w-auto sm:min-h-14 sm:px-6/);
+  assert.match(assistant, /h-\[60dvh\]/);
+  assert.match(assistant, /lg:h-full/);
+  assert.match(assistant, /right-3 z-40/);
+  assert.match(assistant, /overflow-x-hidden/);
+  assert.match(assistant, /tunas-chat-scroll/);
   assert.match(assistant, /<span className="hidden sm:inline">Tunas AI<\/span>/);
   assert.match(assistant, /TunasTypingIndicator/);
   assert.match(styles, /@keyframes tunas-typing-dot/);
   assert.match(styles, /\.tunas-typing-indicator > span\s*\{\s*animation: none;/);
+});
+
+test("uses one themed scrollbar across the application", async () => {
+  const styles = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+  assert.match(styles, /scrollbar-color:/);
+  assert.match(styles, /\*::-webkit-scrollbar-thumb/);
+  assert.match(styles, /--scrollbar-thumb-hover/);
+  assert.match(styles, /\.tunas-chat-scroll \.sm\\:grid-cols-2/);
 });
 
 test("centers confirmation dialogs within the mobile viewport", async () => {

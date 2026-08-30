@@ -38,6 +38,9 @@
     --chart-4: 36 78% 57%;
     --chart-5: 7 63% 56%;
     --radius: 0.625rem;
+    --scrollbar-track: 47 28% 90%;
+    --scrollbar-thumb: 133 18% 48%;
+    --scrollbar-thumb-hover: 133 39% 30%;
   }
 
   .dark {
@@ -71,11 +74,36 @@
     --chart-3: 205 50% 53%;
     --chart-4: 36 78% 57%;
     --chart-5: 7 69% 72%;
+    --scrollbar-track: 134 16% 14%;
+    --scrollbar-thumb: 131 14% 43%;
+    --scrollbar-thumb-hover: 131 26% 58%;
   }
 
   * {
     @apply border-border;
     box-sizing: border-box;
+    scrollbar-color: hsl(var(--scrollbar-thumb)) hsl(var(--scrollbar-track));
+    scrollbar-width: thin;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: hsl(var(--scrollbar-track));
+  }
+
+  *::-webkit-scrollbar-thumb {
+    min-height: 2rem;
+    border: 2px solid hsl(var(--scrollbar-track));
+    border-radius: 999px;
+    background: hsl(var(--scrollbar-thumb));
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--scrollbar-thumb-hover));
   }
 
   html {
@@ -106,6 +134,23 @@
   button {
     touch-action: manipulation;
   }
+}
+
+.tunas-chat-scroll,
+.tunas-chat-scroll * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tunas-chat-scroll article,
+.tunas-chat-scroll dl,
+.tunas-chat-scroll dd,
+.tunas-chat-scroll p {
+  overflow-wrap: anywhere;
+}
+
+.tunas-chat-scroll .sm\:grid-cols-2 {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .auth-shell {

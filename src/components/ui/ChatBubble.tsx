@@ -3,9 +3,10 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/utils/cn";
+import { FormattedMessage } from "@/components/ui/FormattedMessage";
 
 const chatBubbleVariants = cva(
-  "max-w-[88%] whitespace-pre-line rounded-xl px-3 py-2 text-sm leading-6",
+  "min-w-0 max-w-[88%] overflow-hidden rounded-xl px-3 py-2 text-sm leading-6 [overflow-wrap:anywhere]",
   {
     variants: {
       variant: {
@@ -34,7 +35,7 @@ const ChatBubble = React.forwardRef<HTMLDivElement, ChatBubbleProps>(
         className={cn(chatBubbleVariants({ variant }), className)}
         {...props}
       >
-        {children}
+        {variant === "assistant" && typeof children === "string" ? <FormattedMessage>{children}</FormattedMessage> : children}
       </div>
     </div>
   ),

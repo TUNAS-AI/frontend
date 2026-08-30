@@ -96,8 +96,8 @@ export function MissionCreationView({ missionId }: { missionId?: string }) {
     if (!planPreview || planPreview.status !== "feasible" || !selectedPlan) return;
     setError(null); setWorking("confirm");
     try {
-      const mission = missionId ? await confirmMissionReplan(missionId, planPreview.previewToken, selectedPlan.planId) : await confirmMissionPreview(planPreview.previewToken, selectedPlan.planId);
-      if (missionId) clearMissionEditDraft(missionId); else clearMissionCreationDraft(); navigate(`/missions/${mission.missionId}`);
+      const result = missionId ? (await confirmMissionReplan(missionId, planPreview.previewToken, selectedPlan.planId)).mission : await confirmMissionPreview(planPreview.previewToken, selectedPlan.planId);
+      if (missionId) clearMissionEditDraft(missionId); else clearMissionCreationDraft(); navigate(`/missions/${result.missionId}`);
     } catch (reason) {
       if (isStaleMissionApproval(reason)) {
         setPlanPreview(null); setSelectedPlanId(null); setApprovalOpen(false);
