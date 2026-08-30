@@ -11,7 +11,7 @@ export type OperationalReport =
   | ReportBase<"ACTIVITY_STARTED" | "ACTIVITY_COMPLETED", { missionStepId: string }>
   | ReportBase<"ACTUAL_QUANTITY_REPORTED", { quantityKg: number }>
   | ReportBase<"WORKER_AVAILABILITY_CHANGED", { availableWorkers: number; effectiveAt?: string }>
-  | ReportBase<"BUYER_REQUIREMENT_CHANGED", { targetQuantityKg: number; deadline?: string }>
+  | ReportBase<"BUYER_REQUIREMENT_CHANGED", { targetQuantityKg: number; quantityBasis: "HARVESTED" | "DRIED"; deadline?: string }>
   | ReportBase<"DRYING_RESOURCE_CHANGED", { available: boolean; protectionAvailable?: boolean }>
   | ReportBase<"RAIN_OR_FIELD_EVENT", { event: string; observedAt: string }>
   | ReportBase<"MISSION_DEVIATION", { description: string }>

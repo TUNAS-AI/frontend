@@ -23,7 +23,7 @@ test("Farm links Telegram once and mission detail sends a scoped rain demo", asy
 test("report dialog supports every report type and contract field", async () => {
   const source = await read("../src/features/missions/OperationalReportDialog.tsx");
   for (const reportType of ["ACTIVITY_STARTED", "ACTIVITY_COMPLETED", "ACTUAL_QUANTITY_REPORTED", "WORKER_AVAILABILITY_CHANGED", "BUYER_REQUIREMENT_CHANGED", "DRYING_RESOURCE_CHANGED", "RAIN_OR_FIELD_EVENT", "MISSION_DEVIATION", "GENERAL_OPERATIONAL_NOTE"]) assert.match(source, new RegExp(reportType));
-  for (const field of ["quantityKg", "availableWorkers", "effectiveAt", "targetQuantityKg", "deadline", "protectionAvailable", "description", "observedAt", "narrative", "missionStepId"]) assert.match(source, new RegExp(field));
+  for (const field of ["quantityKg", "availableWorkers", "effectiveAt", "targetQuantityKg", "quantityBasis", "deadline", "protectionAvailable", "description", "observedAt", "narrative", "missionStepId"]) assert.match(source, new RegExp(field));
   assert.match(source, /label="Deadline \(optional\)" type="date"/);
   assert.match(source, /crypto\.randomUUID\(\)/);
   assert.match(source, /approveTunasPendingAction/);
