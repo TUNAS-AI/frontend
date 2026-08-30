@@ -3,13 +3,13 @@ services:
     build:
       context: .
       args:
-        VITE_TUNAS_API_URL: ${VITE_TUNAS_API_URL:-https://api.hijau-ai.web.id}
+        VITE_TUNAS_API_URL: ${VITE_TUNAS_API_URL:-http://localhost:3000}
         VITE_MISSION_TRANSPORT: ${VITE_MISSION_TRANSPORT:-demo}
     container_name: tunas-frontend
     restart: unless-stopped
     ports:
       # Keep the container private; the VPS Nginx reverse proxy reaches it here.
-      - "127.0.0.1:8085:80"
+      - "127.0.0.1:5173:80"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
       interval: 30s

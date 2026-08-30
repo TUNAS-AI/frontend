@@ -80,11 +80,15 @@ With Docker Desktop installed and running:
 docker compose up --build
 ```
 
-Open `http://127.0.0.1:8085`. Stop the container with:
+Open `http://127.0.0.1:5173`. Stop the container with:
 
 ```powershell
 docker compose down
 ```
+
+The Docker build defaults to the separately managed backend at
+`http://localhost:3000`. Start it from `backend/` with `docker compose up
+--build`. Override `VITE_TUNAS_API_URL` before building when using another API.
 
 ## UI components
 
@@ -136,13 +140,13 @@ Set these GitHub Actions secrets:
 - `VPS_SSH_KEY`
 - `VPS_FRONTEND_APP_DIR` — the absolute path to this frontend repository on the VPS
 
-The VPS checkout must be able to run `git pull origin main`. The frontend container listens only on `127.0.0.1:8085`, ready for the Nginx site at the configured domain.
+The VPS checkout must be able to run `git pull origin main`. The frontend container listens only on `127.0.0.1:5173`, ready for the Nginx site at the configured domain.
 
 ### Nginx reverse proxy
 
 Copy `nginx/tunas-frontend.vps.conf.example` to your VPS Nginx sites directory,
 replace `example.com` with your domain, then enable and reload the site. The
-configuration proxies public web traffic to the Docker service on port `8085`.
+configuration proxies public web traffic to the Docker service on port `5173`.
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/tunas-frontend /etc/nginx/sites-enabled/tunas-frontend
