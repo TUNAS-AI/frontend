@@ -5,14 +5,15 @@ export type TunasMissionReference = { missionId: string; originalMessage: string
 export type TunasMessage = { tunasMessageId: string; missionId: string | null; mission: TunasMissionReference | null; kind: string; role: "assistant" | "farmer"; content: string; actions: TunasAction[]; readAt: string | null; telegramSentAt: string | null; telegramMessageId: string | null; createdAt: string };
 export type TunasState = { messages: TunasMessage[]; unreadCount: number };
 export type TunasNavigation = { missionId: string; draft: string; autoGenerate: boolean } | null;
-export type OperationalReportType = "ACTIVITY_STARTED" | "ACTIVITY_COMPLETED" | "ACTUAL_QUANTITY_REPORTED" | "WORKER_AVAILABILITY_CHANGED" | "BUYER_REQUIREMENT_CHANGED" | "DRYING_RESOURCE_CHANGED" | "RAIN_OR_FIELD_EVENT" | "MISSION_DEVIATION" | "GENERAL_OPERATIONAL_NOTE";
+export type OperationalReportType = "ACTIVITY_STARTED" | "ACTIVITY_COMPLETED" | "ACTUAL_QUANTITY_REPORTED" | "WORKER_AVAILABILITY_CHANGED" | "BUYER_REQUIREMENT_CHANGED" | "DRYING_RESOURCE_CHANGED" | "DRYING_INSPECTION" | "RAIN_OR_FIELD_EVENT" | "MISSION_DEVIATION" | "GENERAL_OPERATIONAL_NOTE";
 type ReportBase<T extends OperationalReportType, P> = { reportType: T; observedAt: string; missionStepId?: string; fieldBlockId?: string; cropBatchId?: string; narrative?: string; supersedesReportId?: string; payload: P };
 export type OperationalReport =
   | ReportBase<"ACTIVITY_STARTED" | "ACTIVITY_COMPLETED", { missionStepId: string }>
-  | ReportBase<"ACTUAL_QUANTITY_REPORTED", { quantityKg: number }>
+  | ReportBase<"ACTUAL_QUANTITY_REPORTED", { quantityKg: number; quantityBasis: "HARVESTED" | "DRIED"; cumulative: boolean }>
   | ReportBase<"WORKER_AVAILABILITY_CHANGED", { availableWorkers: number; effectiveAt?: string }>
-  | ReportBase<"BUYER_REQUIREMENT_CHANGED", { targetQuantityKg: number; quantityBasis: "HARVESTED" | "DRIED"; deadline?: string }>
+  | ReportBase<"BUYER_REQUIREMENT_CHANGED", { targetQuantityKg: number; quantityBasis: "HARVESTED" | "DRIED"; buyerPickupAt?: string }>
   | ReportBase<"DRYING_RESOURCE_CHANGED", { available: boolean; protectionAvailable?: boolean }>
+  | ReportBase<"DRYING_INSPECTION", { missionStepId: string; neckDry: boolean; topsDry: boolean; outerScalesDry: boolean; noWetPockets: boolean; noActiveDecay: boolean; decision: "INCOMPLETE" | "COMPLETE" | "UNSAFE"; nextInspectionAt?: string }>
   | ReportBase<"RAIN_OR_FIELD_EVENT", { event: string; observedAt: string }>
   | ReportBase<"MISSION_DEVIATION", { description: string }>
   | ReportBase<"GENERAL_OPERATIONAL_NOTE", { text: string }>;

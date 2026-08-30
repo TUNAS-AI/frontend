@@ -74,6 +74,15 @@ test("sends the mission preview and confirmation flow to the backend", async () 
   assert.deepEqual(JSON.parse(String(requests[2].init?.body)), { previewToken: "token", planId: "plan-1" });
 });
 
+test("preserves scheduling v2 facts in the planning request", async () => {
+  const originalFetch = globalThis.fetch;
+  let body: unknown;
+  globalThis.fetch = async (_input, init) => { body = JSON.parse(String(init?.body)); return new Response(JSON.stringify({ status: "infeasible", missionId: "mission-1", blockers: [] }), { status: 200, headers: { "Content-Type": "application/json" } }); };
+  const facts = { fieldBlockId: null, cropBatchIds: [], marketQuality: null, plannedHarvestKg: 100, plannedDriedKg: 80, deadline: null, harvestWindowStart: "2026-08-30T06:00:00+07:00", harvestWindowEnd: "2026-08-30T10:00:00+07:00", buyerPickupAt: "2026-09-02T15:30:00+07:00", priority: "LOWEST_RAIN_RISK" as const, partialFulfillmentAllowed: false, harvestDurationHours: 4, estimatedHarvestableKg: 100, rainProtectionAvailable: true, availableWorkerCount: 5, coveredDryingCapacityKg: 100, notes: null, clarification: null };
+  try { await planMissionPreview({ previewId: "preview-1", messages: [{ role: "farmer", content: "Panen penuh sebelum penjemputan." }], facts, review: [], blocks: [] }); } finally { globalThis.fetch = originalFetch; }
+  assert.deepEqual((body as { candidate: { facts: typeof facts } }).candidate.facts, facts);
+});
+
 test("sends execution and closeout changes to the mission backend", async () => {
   const originalFetch = globalThis.fetch;
   const requests: Array<{ url: string; init?: RequestInit }> = [];

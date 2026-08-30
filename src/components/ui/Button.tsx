@@ -13,6 +13,7 @@ const actionVariantClasses = {
   outline: "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
   ghost: "hover:bg-accent hover:text-accent-foreground",
   danger: "border-destructive bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+  dangerOutline: "border border-destructive/60 bg-background text-destructive hover:border-destructive hover:bg-destructive/10",
   warning: "border-warning bg-warning text-warning-foreground shadow-sm hover:bg-warning/90",
   link: "text-primary underline-offset-4 hover:underline",
 } satisfies Record<ActionVariant, string>

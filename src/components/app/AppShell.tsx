@@ -111,13 +111,16 @@ export function AppShell<Id extends string>({
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-3 pb-6 pt-3 sm:px-5 md:gap-6 md:pb-8 md:pt-5 lg:grid-cols-[264px_minmax(0,1fr)_264px] lg:px-6 lg:pt-6">
         <aside className="hidden lg:block">
           <div className="sticky top-6 grid gap-5">
-            <FarmSnapshotPanel
-              farmerName={session?.account.displayName ?? "Farmer"}
-              snapshot={farmSnapshot}
-              snapshotError={farmSnapshotError}
-              snapshotLoading={farmSnapshotLoading}
-              onRetry={onFarmSnapshotRetry}
-            />
+            <div className="grid gap-2">
+              <img src="/images/tunas-ai-logo.png" alt="TUNAS" className="mx-2 h-10 w-auto object-contain" />
+              <FarmSnapshotPanel
+                farmerName={session?.account.displayName ?? "Farmer"}
+                snapshot={farmSnapshot}
+                snapshotError={farmSnapshotError}
+                snapshotLoading={farmSnapshotLoading}
+                onRetry={onFarmSnapshotRetry}
+              />
+            </div>
             <DesktopNavigation
               activeItem={activeItem}
               items={navigationItems}
@@ -260,7 +263,7 @@ export function DesktopNavigation<Id extends string>({
       <button
         type="button"
         onClick={onSignOut}
-        className="mt-2 flex min-h-12 w-full items-center gap-3 rounded-md border border-transparent px-3 text-left text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:ring-offset-2"
+        className="mt-2 flex min-h-12 w-full items-center gap-3 rounded-md border border-destructive/60 px-3 text-left text-sm font-bold text-destructive transition-colors hover:border-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-destructive/25 focus-visible:ring-offset-2"
       >
         <LogOut className="h-5 w-5" aria-hidden="true" />
         Log out
@@ -362,14 +365,13 @@ export function MobileNavigation<Id extends string>({
             snapshotError={farmSnapshotError}
             snapshotLoading={farmSnapshotLoading}
             onRetry={onFarmSnapshotRetry}
-            showBrand={false}
           />
         </div>
         <button
           type="button"
           tabIndex={open ? 0 : -1}
           onClick={() => { onClose(false); onSignOut(); }}
-          className="mt-auto flex min-h-12 w-full items-center gap-3 rounded-md px-3 text-left text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-ring/30"
+          className="mt-auto flex min-h-12 w-full items-center gap-3 rounded-md border border-destructive/60 px-3 text-left text-sm font-bold text-destructive transition-colors hover:border-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-destructive/25"
         >
           <LogOut className="h-5 w-5" aria-hidden="true" />
           Log out

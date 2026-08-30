@@ -12,6 +12,7 @@ const reportTypes: Array<{ value: OperationalReportType; label: string }> = [
   { value: "ACTIVITY_STARTED", label: "Activity started" }, { value: "ACTIVITY_COMPLETED", label: "Activity completed" },
   { value: "ACTUAL_QUANTITY_REPORTED", label: "Actual quantity" }, { value: "WORKER_AVAILABILITY_CHANGED", label: "Worker availability" },
   { value: "BUYER_REQUIREMENT_CHANGED", label: "Buyer requirement" }, { value: "DRYING_RESOURCE_CHANGED", label: "Drying resource" },
+  { value: "DRYING_INSPECTION", label: "Drying inspection" },
   { value: "RAIN_OR_FIELD_EVENT", label: "Rain or field event" }, { value: "MISSION_DEVIATION", label: "Mission deviation" },
   { value: "GENERAL_OPERATIONAL_NOTE", label: "General note" },
 ];
@@ -20,6 +21,7 @@ type Props = { mission: Mission; open: boolean; initialType?: OperationalReportT
 
 export function OperationalReportDialog({ mission, open, initialType = "GENERAL_OPERATIONAL_NOTE", onOpenChange, onApproved }: Props) {
   const currentStep = mission.missionSteps.find((step) => step.stage === mission.stage && step.status !== "COMPLETED");
+  const dryingGate = mission.missionSteps.find((step) => step.actionKind === "CONFIRM_DRYING_COMPLETE" && step.status !== "COMPLETED");
   const [type, setType] = useState<OperationalReportType>(initialType);
   const [observedAt, setObservedAt] = useState(toLocalDateTime(new Date()));
   const [value, setValue] = useState("");
@@ -30,11 +32,11 @@ export function OperationalReportDialog({ mission, open, initialType = "GENERAL_
   const [working, setWorking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { if (open) { setType(initialType); setObservedAt(toLocalDateTime(new Date())); setValue(""); setSecondary(""); setChoice("yes"); setNarrative(""); setResponse(null); setError(null); } }, [initialType, open]);
+  useEffect(() => { if (open) { setType(initialType); setObservedAt(toLocalDateTime(new Date())); setValue(""); setSecondary(""); setChoice(initialType === "DRYING_INSPECTION" ? "incomplete" : "yes"); setNarrative(""); setResponse(null); setError(null); } }, [initialType, open]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setWorking("submit"); setError(null);
-    try { setResponse(await sendTunasReport(mission.missionId, buildReport(type, observedAt, currentStep?.missionStepId, value, secondary, choice, narrative), crypto.randomUUID())); }
+    try { setResponse(await sendTunasReport(mission.missionId, buildReport(type, observedAt, type === "DRYING_INSPECTION" ? dryingGate?.missionStepId : currentStep?.missionStepId, value, secondary, choice, narrative), crypto.randomUUID())); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "We could not prepare this report."); }
     finally { setWorking(null); }
   }
@@ -52,13 +54,13 @@ export function OperationalReportDialog({ mission, open, initialType = "GENERAL_
   const canReplan = response?.impact?.replanSupported && response.semanticActions?.some((action) => action.type === "OPEN_REPLAN");
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>Report operational change</DialogTitle><DialogDescription>Record what happened, review TUNAS's readable preview, then approve before it changes the mission record.</DialogDescription></DialogHeader>
     {!response ? <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
-      <label className="grid gap-2 text-sm font-semibold">Report type<select className="min-h-11 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/30" value={type} onChange={(event) => { setType(event.target.value as OperationalReportType); setValue(""); setSecondary(""); }}>{reportTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+      <label className="grid gap-2 text-sm font-semibold">Report type<select className="min-h-11 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/30" value={type} onChange={(event) => { const next = event.target.value as OperationalReportType; setType(next); setValue(""); setSecondary(""); setChoice(next === "DRYING_INSPECTION" ? "incomplete" : "yes"); }}>{reportTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
       <label className="grid gap-2 text-sm font-semibold">Observed at<Input type="datetime-local" required value={observedAt} onChange={(event) => setObservedAt(event.target.value)} /></label>
       {currentStep && ["ACTIVITY_STARTED", "ACTIVITY_COMPLETED"].includes(type) ? <p className="rounded-md bg-muted/50 p-3 text-sm"><span className="font-bold">Current task: </span>{currentStep.title}</p> : null}
       <ReportFields type={type} value={value} secondary={secondary} choice={choice} onValue={setValue} onSecondary={setSecondary} onChoice={setChoice} />
       <label className="grid gap-2 text-sm font-semibold">Additional context <span className="font-normal text-muted-foreground">Optional</span><Textarea value={narrative} onChange={(event) => setNarrative(event.target.value)} placeholder="Context that will help explain this report…" /></label>
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}<Button type="submit" className="w-full sm:w-fit sm:justify-self-end" isLoading={working === "submit"} loadingLabel="Preparing report">Review report</Button>
-    </form> : <div className="grid gap-4"><div className="rounded-md border border-ai-100 bg-ai-50 p-4"><p className="font-bold text-ai-700">{pending?.preview.question || response.message || "Review operational report"}</p>{pending?.preview.report ? <ReportSummary report={pending.preview.report} /> : <ReportSummary report={buildReport(type, observedAt, currentStep?.missionStepId, value, secondary, choice, narrative)} />}</div>
+    </form> : <div className="grid gap-4"><div className="rounded-md border border-ai-100 bg-ai-50 p-4"><p className="font-bold text-ai-700">{pending?.preview.question || response.message || "Review operational report"}</p>{pending?.preview.report ? <ReportSummary report={pending.preview.report} /> : <ReportSummary report={buildReport(type, observedAt, type === "DRYING_INSPECTION" ? dryingGate?.missionStepId : currentStep?.missionStepId, value, secondary, choice, narrative)} />}</div>
       {response.impact ? <div className="rounded-md border p-3 text-sm"><p className="font-bold">Impact: {response.impact.level === "MATERIAL" ? "Material change" : "No material planning impact"}</p>{response.impact.reasons.length ? <ul className="mt-2 grid gap-1">{response.impact.reasons.map((reason, index) => <li key={`${index}-${reason}`}>{reason}</li>)}</ul> : null}{canReplan ? <Button asChild variant="outline" size="sm" className="mt-3"><Link to={`/missions/${mission.missionId}/edit`}>Open replan</Link></Button> : null}</div> : null}
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}{canDecide ? <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" disabled={working !== null} isLoading={working === "reject"} onClick={() => void decide("reject")}>Reject</Button><Button type="button" disabled={working !== null} isLoading={working === "approve"} onClick={() => void decide("approve")}>Approve report</Button></div> : <p className="text-sm font-semibold">Report {pending?.status.toLowerCase() || "processed"}.</p>}
     </div>}
@@ -67,10 +69,15 @@ export function OperationalReportDialog({ mission, open, initialType = "GENERAL_
 
 function ReportFields({ type, value, secondary, choice, onValue, onSecondary, onChoice }: { type: OperationalReportType; value: string; secondary: string; choice: string; onValue: (value: string) => void; onSecondary: (value: string) => void; onChoice: (value: string) => void }) {
   if (type === "ACTIVITY_STARTED" || type === "ACTIVITY_COMPLETED") return null;
-  if (type === "ACTUAL_QUANTITY_REPORTED") return <NativeField label="Actual quantity (kg)" type="number" value={value} onChange={onValue} />;
+  if (type === "ACTUAL_QUANTITY_REPORTED") return <><NativeField label="Actual quantity (kg)" type="number" value={value} onChange={onValue} /><label className="grid gap-2 text-sm font-semibold">Quantity basis<select value={choice === "HARVESTED" ? "HARVESTED" : "DRIED"} onChange={(event) => onChoice(event.target.value)}><option value="HARVESTED">Harvested</option><option value="DRIED">Dried</option></select></label></>;
   if (type === "WORKER_AVAILABILITY_CHANGED") return <><NativeField label="Available workers" type="number" step="1" value={value} onChange={onValue} /><NativeField label="Effective at (optional)" type="datetime-local" value={secondary} onChange={onSecondary} required={false} /></>;
   if (type === "BUYER_REQUIREMENT_CHANGED") return <><NativeField label="Target quantity (kg)" type="number" value={value} onChange={onValue} /><label className="grid gap-2 text-sm font-semibold">Quantity basis<select className="min-h-11 rounded-md border border-input bg-background px-3 py-2 text-sm" value={choice === "HARVESTED" ? "HARVESTED" : "DRIED"} onChange={(event) => onChoice(event.target.value)}><option value="DRIED">Dried weight</option><option value="HARVESTED">Harvested weight</option></select></label><NativeField label="Deadline (optional)" type="date" value={secondary} onChange={onSecondary} required={false} /></>;
   if (type === "DRYING_RESOURCE_CHANGED") return <><YesNo label="Drying resource available?" value={choice} onChange={onChoice} /><YesNo label="Protection available?" value={secondary || "yes"} onChange={onSecondary} /></>;
+  if (type === "DRYING_INSPECTION") {
+    const selected = new Set(value.split(",").filter(Boolean));
+    const checks = [["neckDry", "Neck sufficiently dry"], ["topsDry", "Leaves/tops sufficiently dry"], ["outerScalesDry", "Outer scales dry and papery"], ["noWetPockets", "No wet pockets or condensation"], ["noActiveDecay", "No active decay or unacceptable damage"]] as const;
+    return <><fieldset className="grid gap-2"><legend className="text-sm font-semibold">Observable completion checklist</legend>{checks.map(([key, label]) => <label key={key} className="flex gap-2 text-sm"><input type="checkbox" checked={selected.has(key)} onChange={(event) => { const next = new Set(selected); if (event.target.checked) next.add(key); else next.delete(key); onValue([...next].join(",")); }} />{label}</label>)}</fieldset><label className="grid gap-2 text-sm font-semibold">Decision<select value={choice.toUpperCase()} onChange={(event) => onChoice(event.target.value.toLowerCase())}><option value="INCOMPLETE">Incomplete</option><option value="COMPLETE">Complete</option><option value="UNSAFE">Unsafe</option></select></label>{choice.toUpperCase() === "INCOMPLETE" ? <NativeField label="Next inspection" type="datetime-local" value={secondary} onChange={onSecondary} /> : null}</>;
+  }
   const labels: Record<"RAIN_OR_FIELD_EVENT" | "MISSION_DEVIATION" | "GENERAL_OPERATIONAL_NOTE", string> = { RAIN_OR_FIELD_EVENT: "Rain or field event", MISSION_DEVIATION: "Deviation description", GENERAL_OPERATIONAL_NOTE: "Operational note" };
   return <label className="grid gap-2 text-sm font-semibold">{labels[type]}<Textarea required value={value} onChange={(event) => onValue(event.target.value)} /></label>;
 }
@@ -79,10 +86,11 @@ function YesNo({ label, value, onChange }: { label: string; value: string; onCha
 function buildReport(type: OperationalReportType, observedAt: string, missionStepId: string | undefined, value: string, secondary: string, choice: string, narrative: string): OperationalReport {
   const base = { observedAt: new Date(observedAt).toISOString(), ...(missionStepId ? { missionStepId } : {}), ...(narrative.trim() ? { narrative: narrative.trim() } : {}) };
   if (type === "ACTIVITY_STARTED" || type === "ACTIVITY_COMPLETED") { if (!missionStepId) throw new Error("This mission has no current task to report."); return { ...base, reportType: type, payload: { missionStepId } }; }
-  if (type === "ACTUAL_QUANTITY_REPORTED") return { ...base, reportType: type, payload: { quantityKg: Number(value) } };
+  if (type === "ACTUAL_QUANTITY_REPORTED") return { ...base, reportType: type, payload: { quantityKg: Number(value), quantityBasis: choice === "HARVESTED" ? "HARVESTED" : "DRIED", cumulative: true } };
   if (type === "WORKER_AVAILABILITY_CHANGED") return { ...base, reportType: type, payload: { availableWorkers: Number(value), ...(secondary ? { effectiveAt: new Date(secondary).toISOString() } : {}) } };
-  if (type === "BUYER_REQUIREMENT_CHANGED") return { ...base, reportType: type, payload: { targetQuantityKg: Number(value), quantityBasis: choice === "HARVESTED" ? "HARVESTED" : "DRIED", ...(secondary ? { deadline: secondary } : {}) } };
+  if (type === "BUYER_REQUIREMENT_CHANGED") return { ...base, reportType: type, payload: { targetQuantityKg: Number(value), quantityBasis: choice === "HARVESTED" ? "HARVESTED" : "DRIED", ...(secondary ? { buyerPickupAt: new Date(`${secondary}T00:00:00`).toISOString() } : {}) } };
   if (type === "DRYING_RESOURCE_CHANGED") return { ...base, reportType: type, payload: { available: choice === "yes", protectionAvailable: (secondary || "yes") === "yes" } };
+  if (type === "DRYING_INSPECTION") { if (!missionStepId) throw new Error("This mission has no drying completion gate."); const checks = new Set(value.split(",")); return { ...base, reportType: type, missionStepId, payload: { missionStepId, neckDry: checks.has("neckDry"), topsDry: checks.has("topsDry"), outerScalesDry: checks.has("outerScalesDry"), noWetPockets: checks.has("noWetPockets"), noActiveDecay: checks.has("noActiveDecay"), decision: choice.toUpperCase() as "INCOMPLETE" | "COMPLETE" | "UNSAFE", ...(secondary ? { nextInspectionAt: new Date(secondary).toISOString() } : {}) } }; }
   if (type === "RAIN_OR_FIELD_EVENT") return { ...base, reportType: type, payload: { event: value.trim(), observedAt: new Date(observedAt).toISOString() } };
   if (type === "MISSION_DEVIATION") return { ...base, reportType: type, payload: { description: value.trim() } };
   return { ...base, reportType: type, payload: { text: value.trim() } };

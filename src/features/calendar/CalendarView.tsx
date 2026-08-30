@@ -25,7 +25,10 @@ function monthDays(month: Date) { const { from, to } = monthBounds(month); const
 function monthFromQuery(value: string | null) { const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(value ?? ""); return match ? new Date(Number(match[1]), Number(match[2]) - 1, 1) : null; }
 function monthKey(month: Date) { return `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`; }
 function eventsForDate(steps: CalendarMissionStep[], key: string) { return steps.filter((step) => step.startsOn.slice(0, 10) <= key && step.endsOn.slice(0, 10) >= key); }
-function taskTime(step: CalendarMissionStep) { return step.windowStart && step.windowEnd ? `${step.windowStart}–${step.windowEnd}` : "All day"; }
+function taskTime(step: CalendarMissionStep) {
+  if (step.scheduleType === "DAILY_WINDOW" && step.windowStart && step.windowEnd) return `${step.windowStart}–${step.windowEnd}`;
+  return taskRange(step);
+}
 function taskRange(step: CalendarMissionStep) { const from = new Date(`${step.startsOn.slice(0, 10)}T00:00:00`); const to = new Date(`${step.endsOn.slice(0, 10)}T00:00:00`); return dateKey(from) === dateKey(to) ? rangeDateFormat.format(from) : `${rangeDateFormat.format(from)}–${rangeDateFormat.format(to)}`; }
 
 export function CalendarView() {

@@ -12,15 +12,10 @@ export type MissionMessage = { role: "farmer" | "assistant"; content: string };
 export type MissionFacts = {
   fieldBlockId: string | null;
   cropBatchIds: string[];
-  marketQuality: "Grade A" | "Grade B" | "Grade C" | null;
+  readinessConfirmed: boolean | null;
+  destination: "IMMEDIATE_SALE" | "CONSUMPTION_STORAGE" | "SEED_STOCK" | null;
   plannedHarvestKg: number | null;
-  plannedDriedKg: number | null;
-  deadline: string | null;
-  harvestDurationHours: number | null;
-  estimatedHarvestableKg: number | null;
-  rainProtectionAvailable: boolean | null;
-  availableWorkerCount: number | null;
-  coveredDryingCapacityKg: number | null;
+  deadlineAt: string | null;
   notes: string | null;
   clarification: { key: string; question: string } | null;
 };
@@ -29,9 +24,13 @@ export type MissionFactBlock = { key: string; value: unknown; provenance: FactPr
 export type MissionManualOptions = { timezone: string; fieldBlocks: Array<{ fieldBlockId: string; name: string }>; cropBatches: Array<{ cropBatchId: string; fieldBlockId: string; label: string }> };
 export type MissionPreviewCandidate = { previewId: string; messages: MissionMessage[]; facts: MissionFacts; review: MissionFactReview[]; blocks: MissionFactBlock[]; manualOptions?: MissionManualOptions };
 export type MissionPreviewInterpretation = MissionPreviewCandidate;
-export type MissionPlanActivity = { title: string; description: string; scheduleType: "DAILY_WINDOW" | "DATE_RANGE"; startsOn: string; endsOn: string; windowStart: string | null; windowEnd: string | null; timezone: string; isConditional: boolean; stage: "HARVESTING" | "DRYING"; targetHarvestKg?: number | null };
-export type MissionPreviewPlan = { planId: string; name: string; summary: string; evidence: string[]; tradeoffs: string[]; assumptions: string[]; risks: Record<string, string>; dryingEstimateDays: number; dryingEstimateReason: string; activities: MissionPlanActivity[] };
-export type MissionPlanRecommendation = { planId: string; reasons: string[] };
+export type MissionActionKind = "CONFIRM_READINESS_WEATHER" | "PREPARE_CREW_TOOLS" | "HARVEST" | "BUNDLE_COLLECT" | "TRANSFER_TO_DRYING" | "SET_UP_DRYING" | "BEGIN_DRYING" | "TURN_OR_REARRANGE" | "INSPECT_DRYING" | "DEPLOY_RAIN_PROTECTION" | "REMOVE_RAIN_PROTECTION" | "CONFIRM_DRYING_COMPLETE";
+export type MissionScheduleType = "DAILY_WINDOW" | "CONDITION_GATE";
+export type MissionPlanActivity = { title: string; description: string; actionKind: MissionActionKind; scheduleType: MissionScheduleType; startsOn: string; endsOn: string; windowStart: string | null; windowEnd: string | null; timezone: string; isConditional: boolean; stage: "HARVESTING" | "DRYING"; targetHarvestKg?: number | null; quantityKg?: number | null; workers?: number | null };
+export type MissionEvidence = { evidenceId: string; source: "WEATHER" | "MISSION_CONSTRAINT" | "RESOURCE" | "DEPENDENCY"; rule: string; passed: boolean; value: string | number | boolean | null };
+export type MissionRecommendationReason = { text: string; evidenceRefs: string[] };
+export type MissionPreviewPlan = { planId: string; name: string; summary: string; evidence: MissionEvidence[]; tradeoffs: string[]; assumptions: string[]; risks: Record<string, string>; dryingEstimateDays: number; dryingEstimateMinDays: number; dryingEstimateMaxDays: number; dryingEstimateReason: string; weatherStatus: "VERIFIED" | "WEATHER_UNVERIFIED"; activities: MissionPlanActivity[] };
+export type MissionPlanRecommendation = { planId: string; reasons: MissionRecommendationReason[] };
 export type MissionPlanPreview =
   | { status: "feasible"; missionId: string; candidates: MissionPreviewPlan[]; recommendation: MissionPlanRecommendation | null; previewToken: string; expiresInSeconds: number }
   | { status: "infeasible"; missionId: string; blockers: string[] };
@@ -42,6 +41,8 @@ export type MissionStep = {
   sequence: number;
   title: string;
   description: string;
+  actionKind: MissionActionKind;
+  scheduleType: MissionScheduleType;
   startsOn: string;
   endsOn: string;
   windowStart: string | null;

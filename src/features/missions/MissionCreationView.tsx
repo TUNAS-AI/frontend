@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, CheckCircle2, CircleAlert, FileText, Send, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, CircleAlert, Send, Sparkles, Trash2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
 import { confirmMissionPreview, confirmMissionReplan, getMissionReplanDraft, interpretMissionPreview, interpretMissionReplan, isStaleMissionApproval, planMissionPreview, planMissionReplan, type MissionFactReview, type MissionPlanRecommendation, type MissionPreviewCandidate, type MissionPreviewPlan } from "@/api/missions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/Alert";
@@ -12,17 +12,19 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { FieldGroup, Select } from "@/components/ui/FieldControl";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { formatDate } from "./MissionsView";
 import { clearMissionCreationDraft, clearMissionEditDraft, persistMissionCreationDraft, persistMissionEditDraft, restoreMissionCreationDraft, restoreMissionEditDraft } from "./missionCreationDraft";
+import { MissionCandidateReview } from "./components/MissionCandidateReview";
 
-const requiredKeys = ["fieldBlockId", "cropBatchIds", "marketQuality", "plannedHarvestKg", "plannedDriedKg", "deadline", "harvestDurationHours", "rainProtectionAvailable"] as const;
-type EditableFactKey = typeof requiredKeys[number] | "notes";
-const labels: Record<string, string> = { fieldBlockId: "Field block", cropBatchIds: "Crop batches", marketQuality: "Market quality", plannedHarvestKg: "Planned harvest", plannedDriedKg: "Planned dried weight", deadline: "Deadline", harvestDurationHours: "Estimated harvest duration (hours)", rainProtectionAvailable: "Rain protection available", availableWorkerCount: "Available workers", notes: "Notes" };
+const requiredKeys = ["fieldBlockId", "cropBatchIds", "readinessConfirmed", "destination", "plannedHarvestKg", "deadlineAt"] as const;
+type EditableFactKey = keyof Omit<MissionPreviewCandidate["facts"], "clarification">;
+const mvpLabels: Record<string, string> = { fieldBlockId: "Field block", cropBatchIds: "Crop batches", readinessConfirmed: "Crop is ready to harvest", destination: "Intended destination", plannedHarvestKg: "Amount to harvest (kg)", deadlineAt: "Mission deadline" };
+const labels: Record<string, string> = { fieldBlockId: "Field block", cropBatchIds: "Crop batches", readinessStatus: "Farmer-confirmed readiness", readinessConfirmedAt: "Readiness confirmed at", destination: "Intended destination", plannedHarvestKg: "Planned harvest (kg)", plannedDriedKg: "Planned dried amount (kg)", estimatedHarvestableKg: "Confirmed available amount (kg)", harvestWindowStart: "Harvest window starts", harvestWindowEnd: "Harvest window ends", buyerPickupAt: "Mission deadline", deadlineSemantics: "What must be complete", priority: "Scheduling priority", partialFulfillmentAllowed: "Partial fulfillment", minimumPartialKg: "Minimum partial amount (kg)", harvestDurationHours: "Harvest effort (crew-hours)", preparationDurationHours: "Preparation effort (hours)", bundlingDurationHours: "Bundling effort (hours)", transferMinutesPerTrip: "Transfer time per trip (minutes)", dryingSetupDurationHours: "Drying setup effort (hours)", inspectionDurationMinutes: "Inspection effort (minutes)", turningDurationMinutes: "Turning effort (minutes)", availableWorkerCount: "Available workers", vehiclePayloadKg: "Vehicle payload (kg)", temporaryHoldingCapacityKg: "Temporary holding capacity (kg)", dryingMethod: "Drying method", dryingCapacityKg: "Drying capacity (kg)", dryingExposure: "Drying exposure", protectedCapacityKg: "Protected capacity (kg)", coverDeploymentMinutes: "Cover deployment time (minutes)", coverCrewRequired: "Cover crew required", dryingEstimatedMinDays: "Approved drying estimate minimum (days)", dryingEstimatedMaxDays: "Approved drying estimate maximum (days)", inspectionCadenceDays: "Inspection cadence (days)", turningCadenceDays: "Turning cadence (days)", harvestMaxPrecipitationMm: "Harvest hard rain threshold (mm/hour)", harvestMaxProbabilityPct: "Harvest probability threshold (%)", exposedDryingMaxPrecipitationMm: "Exposed drying rain threshold (mm/hour)", coverTriggerProbabilityPct: "Cover trigger probability (%)", forecastRecheckLeadHours: "Forecast recheck lead (hours)", notes: "Notes" };
 
+void labels;
 function reviewFor(candidate: MissionPreviewCandidate, key: string) { return candidate.review.find((item) => item.key === key); }
 function hasValue(value: unknown) { return value !== null && value !== "" && value !== undefined && (!Array.isArray(value) || value.length > 0); }
 function isConfirmed(candidate: MissionPreviewCandidate) { return requiredKeys.every((key) => hasValue(candidate.facts[key])); }
-function promptFor(candidate: MissionPreviewCandidate | null) { return candidate?.facts.clarification?.question ?? "Describe the harvest goal, field, target amount, market quality, and deadline."; }
+function promptFor(candidate: MissionPreviewCandidate | null) { return candidate?.facts.clarification?.question ?? "Describe what you want to harvest, how much, where it is going, and the deadline."; }
 
 export function MissionCreationView({ missionId }: { missionId?: string }) {
   const navigate = useNavigate();
@@ -144,42 +146,35 @@ function MissionPromptCard({ candidate, message, working, onMessage, onInterpret
 }
 
 function FactSummary({ candidate, missing, onChange }: { candidate: MissionPreviewCandidate; missing: readonly string[]; onChange: (key: EditableFactKey, value: MissionPreviewCandidate["facts"][EditableFactKey]) => void }) {
-  return <section className="grid gap-4" aria-labelledby="mission-summary-heading"><div><h2 id="mission-summary-heading" className="text-2xl font-extrabold tracking-tight">Mission summary</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Review TUNAS’s extraction or fill any required detail directly. You can still use the message below to revise it in your own words.</p></div>{missing.length ? <Alert variant="warning"><CircleAlert aria-hidden="true" /><AlertTitle>Still needed: {missing.map((key) => labels[key]).join(", ")}</AlertTitle><AlertDescription>Fill the fields below or answer the focused question below.</AlertDescription></Alert> : null}<div className="grid gap-3 sm:grid-cols-2">{requiredKeys.map((key) => <FactCard key={key} factKey={key} candidate={candidate} review={reviewFor(candidate, key)} onChange={onChange} />)}<Card className="min-w-0 sm:col-span-2"><CardHeader className="gap-3 p-4"><CardTitle className="text-base">Additional notes</CardTitle><CardDescription>Add context that could affect the harvest plan. This is optional.</CardDescription><Textarea value={candidate.facts.notes ?? ""} onChange={(event) => onChange("notes", event.target.value || null)} placeholder="Example: access conditions, buyer instructions, or other field context." /></CardHeader></Card></div></section>;
+  return <section className="grid gap-4" aria-labelledby="mission-summary-heading"><div><h2 id="mission-summary-heading" className="text-2xl font-extrabold tracking-tight">Mission summary</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Drying method, capacity, and usual duration come from Farm details.</p></div>{missing.length ? <Alert variant="warning"><CircleAlert aria-hidden="true" /><AlertTitle>Still needed: {missing.map((key) => mvpLabels[key]).join(", ")}</AlertTitle><AlertDescription>Fill the fields below or answer the focused question below.</AlertDescription></Alert> : null}<div className="grid gap-3 sm:grid-cols-2">{requiredKeys.map((key) => <FactCard key={key} factKey={key} candidate={candidate} review={reviewFor(candidate, key)} onChange={onChange} />)}<Card className="min-w-0 sm:col-span-2"><CardHeader className="gap-3 p-4"><CardTitle className="text-base">Additional notes</CardTitle><CardDescription>Optional context for access, current conditions, or buyer instructions.</CardDescription><Textarea value={candidate.facts.notes ?? ""} onChange={(event) => onChange("notes", event.target.value || null)} /></CardHeader></Card></div></section>;
 }
 
-function FactCard({ factKey, candidate, review, onChange }: { factKey: typeof requiredKeys[number]; candidate: MissionPreviewCandidate; review?: MissionFactReview; onChange: (key: EditableFactKey, value: MissionPreviewCandidate["facts"][EditableFactKey]) => void }) {
-  const label = labels[factKey]; const value = candidate.facts[factKey];
+function FactCard({ factKey, candidate, review, onChange, optional = false }: { factKey: EditableFactKey; candidate: MissionPreviewCandidate; review?: MissionFactReview; onChange: (key: EditableFactKey, value: MissionPreviewCandidate["facts"][EditableFactKey]) => void; optional?: boolean }) {
+  const label = mvpLabels[factKey]; const value = candidate.facts[factKey];
   const missing = review?.status !== "confirmed";
   const options = candidate.manualOptions;
   const fieldBatches = options?.cropBatches.filter((batch) => batch.fieldBlockId === candidate.facts.fieldBlockId) ?? [];
   const control = factKey === "fieldBlockId" ? <FieldGroup label={label} required><Select value={typeof value === "string" ? value : ""} onChange={(event) => onChange(factKey, event.target.value || null)} aria-invalid={missing}><option value="">Select a field block</option>{options?.fieldBlocks.map((field) => <option key={field.fieldBlockId} value={field.fieldBlockId}>{field.name}</option>)}</Select></FieldGroup>
     : factKey === "cropBatchIds" ? <fieldset className="grid gap-2"><legend className="text-sm font-semibold">{label}<span className="ml-1 text-destructive" aria-hidden="true">*</span></legend>{candidate.facts.fieldBlockId ? fieldBatches.length ? <div className="grid gap-2 rounded-md border p-3">{fieldBatches.map((batch) => <label key={batch.cropBatchId} className="flex min-h-11 items-center gap-3 text-sm font-medium"><input type="checkbox" className="h-4 w-4 rounded border-input" checked={candidate.facts.cropBatchIds.includes(batch.cropBatchId)} onChange={(event) => onChange(factKey, event.target.checked ? [...candidate.facts.cropBatchIds, batch.cropBatchId] : candidate.facts.cropBatchIds.filter((id) => id !== batch.cropBatchId))} />{batch.label}</label>)}</div> : <p className="text-sm text-muted-foreground">No crop batches are available in this field.</p> : <p className="text-sm text-muted-foreground">Select a field block first.</p>}</fieldset>
-    : factKey === "marketQuality" ? <FieldGroup label={label} required><Select value={typeof value === "string" ? value : ""} onChange={(event) => onChange(factKey, event.target.value || null)} aria-invalid={missing}><option value="">Select a market-quality grade</option><option value="Grade A">Grade A</option><option value="Grade B">Grade B</option><option value="Grade C">Grade C</option></Select></FieldGroup>
-    : factKey === "deadline" ? <DeadlineField value={typeof value === "string" ? value : null} missing={missing} onChange={(next) => onChange(factKey, next)} />
-    : factKey === "rainProtectionAvailable" ? <FieldGroup label={label} required><Select value={value === null ? "" : String(value)} onChange={(event) => onChange(factKey, event.target.value === "" ? null : event.target.value === "true")} aria-invalid={missing}><option value="">Select an answer</option><option value="true">Yes, protection is available</option><option value="false">No protection is available</option></Select></FieldGroup>
-    : <FieldGroup label={label} required><Input type="number" min="0.001" step="0.001" value={typeof value === "number" ? value : ""} onChange={(event) => onChange(factKey, event.target.value === "" ? null : Number(event.target.value))} aria-invalid={missing} /></FieldGroup>;
+    : factKey === "readinessConfirmed" ? <label className="flex min-h-11 items-center gap-3 rounded-md border p-3 text-sm font-semibold"><input type="checkbox" className="h-4 w-4" checked={value === true} onChange={(event) => onChange(factKey, event.target.checked)} />I confirm this crop is ready to harvest</label>
+    : factKey === "destination" ? <EnumField label={label} value={value} values={["IMMEDIATE_SALE", "CONSUMPTION_STORAGE", "SEED_STOCK"]} onChange={(next) => onChange(factKey, next)} />
+    : factKey === "deadlineAt" ? <IsoDateTimeField label={label} value={typeof value === "string" ? value : null} timezone={options?.timezone} missing={missing} onChange={(next) => onChange(factKey, next)} />
+    : <FieldGroup label={label} required={!optional}><Input type="number" min="0" step="0.001" value={typeof value === "number" ? value : ""} onChange={(event) => onChange(factKey, event.target.value === "" ? null : Number(event.target.value))} aria-invalid={!optional && missing} /></FieldGroup>;
   return <Card className="min-w-0"><CardHeader className="gap-3 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><CardTitle className="text-base">{label}</CardTitle><Badge variant={missing ? "warning" : review?.provenance === "INFERRED" ? "source" : "success"}>{missing ? review?.status === "needs_clarification" ? "Needs clarification" : "Missing" : review?.provenance === "INFERRED" ? "From farm context" : "Farmer-reported"}</Badge></div>{control}{review ? <ConfidenceIndicator level={review.confidence} showScale={false} /> : null}</CardHeader></Card>;
 }
 
-function DeadlineField({ value, missing, onChange }: { value: string | null; missing: boolean; onChange: (value: string | null) => void }) {
-  const initial = value ? formatDeadlineInput(value) : "";
-  const [draft, setDraft] = useState(initial); const [error, setError] = useState<string | null>(null);
-  useEffect(() => { setDraft(value ? formatDeadlineInput(value) : ""); }, [value]);
-  function commit() {
-    if (!draft) { setError(null); onChange(null); return; }
-    const normalized = parseDeadlineInput(draft);
-    if (!normalized) { setError("Use a valid date in dd/mm/yyyy format."); return; }
-    setError(null); onChange(normalized);
-  }
-  return <FieldGroup label="Deadline" required><Input inputMode="numeric" placeholder="dd/mm/yyyy" value={draft} onChange={(event) => setDraft(event.target.value)} onBlur={commit} aria-invalid={missing || Boolean(error)} aria-describedby={error ? "mission-deadline-error" : undefined} />{error ? <p id="mission-deadline-error" className="text-sm text-destructive" role="alert">{error}</p> : null}</FieldGroup>;
+function EnumField({ label, value, values, onChange }: { label: string; value: unknown; values: string[]; onChange: (value: never) => void }) {
+  return <FieldGroup label={label} required><Select value={typeof value === "string" ? value : ""} onChange={(event) => onChange((event.target.value || null) as never)}><option value="">Select an answer</option>{values.map((item) => <option key={item} value={item}>{item.replaceAll("_", " ").toLowerCase()}</option>)}</Select></FieldGroup>;
 }
 
-function formatDeadlineInput(value: string) { const [year, month, day] = value.slice(0, 10).split("-"); return year && month && day ? `${day}/${month}/${year}` : value; }
-function parseDeadlineInput(value: string) {
-  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
-  if (!match) return null;
-  const [, day, month, year] = match; const date = new Date(`${year}-${month}-${day}T00:00:00Z`);
-  return date.getUTCFullYear() === Number(year) && date.getUTCMonth() === Number(month) - 1 && date.getUTCDate() === Number(day) ? `${year}-${month}-${day}` : null;
+function IsoDateTimeField({ label, value, timezone, missing, onChange }: { label: string; value: string | null; timezone?: string; missing: boolean; onChange: (value: string | null) => void }) {
+  const localValue = value?.slice(0, 16) ?? "";
+  function update(next: string) {
+    if (!next) { onChange(null); return; }
+    const offset = value?.match(/(Z|[+-]\d{2}:\d{2})$/)?.[1] ?? ({ "Asia/Jakarta": "+07:00", "Asia/Makassar": "+08:00", "Asia/Jayapura": "+09:00" }[timezone ?? ""] ?? "Z");
+    onChange(`${next}:00${offset}`);
+  }
+  return <FieldGroup label={label} required><Input type="datetime-local" value={localValue} onChange={(event) => update(event.target.value)} aria-invalid={missing} /><p className="text-xs text-muted-foreground">Timezone: {timezone ?? "mission timezone"}. Existing UTC offset is retained when edited.</p></FieldGroup>;
 }
 
 function InfeasiblePlan({ blockers, onRevise }: { blockers: string[]; onRevise: () => void }) {
@@ -188,13 +183,11 @@ function InfeasiblePlan({ blockers, onRevise }: { blockers: string[]; onRevise: 
 
 function PlanReview({ plans, recommendation, selectedPlan, onSelect, onRevise, onApprove }: { plans: MissionPreviewPlan[]; recommendation: MissionPlanRecommendation | null; selectedPlan: MissionPreviewPlan | null; onSelect: (planId: string) => void; onRevise: () => void; onApprove: () => void }) {
   if (!plans.length) return <InfeasiblePlan blockers={["The planning service returned no feasible candidates."]} onRevise={onRevise} />;
-  const orderedPlans = plans.map((plan) => {
-    const recommended = plan.planId === recommendation?.planId;
-    return {
-      ...plan,
-      recommended,
-      dryingEstimateReason: `${plan.dryingEstimateReason} Deterministic evidence: ${plan.evidence.join(" ") || "No additional evidence supplied."} Tradeoffs: ${plan.tradeoffs.join(" ") || "No additional tradeoffs supplied."}${recommended ? ` Advisory recommendation reasons: ${recommendation.reasons.join(" ")}` : ""}`,
-    };
-  }).sort((left, right) => Number(right.recommended) - Number(left.recommended));
-  return <section className="grid gap-5" aria-labelledby="plan-options-heading"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="plan-options-heading" className="text-2xl font-extrabold tracking-tight">Choose a harvest plan</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Select one option to inspect its schedule, risks, and drying estimate. Selection does not create a mission.</p></div><Button type="button" variant="outline" onClick={onRevise} icon={<ArrowLeft aria-hidden="true" />}>Revise details</Button></div><div className="grid gap-3">{orderedPlans.map((plan) => <button key={plan.planId} type="button" aria-pressed={selectedPlan?.planId === plan.planId} onClick={() => onSelect(plan.planId)} className={`grid gap-3 rounded-lg border p-5 text-left transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/30 ${plan.recommended ? "border-ai-200 bg-ai-50/80 shadow-farm hover:border-ai-300" : "bg-card hover:border-forest-400 hover:bg-forest-50/30"} ${selectedPlan?.planId === plan.planId ? plan.recommended ? "ring-2 ring-ai-500/30" : "border-forest-500 bg-forest-50/60 ring-2 ring-forest-500/20" : ""}`}><div className="flex flex-wrap items-center justify-between gap-2"><div className="grid gap-1"><h3 className="text-lg font-bold">{plan.name}</h3>{plan.recommended ? <p className="text-sm font-semibold text-ai-700">Best fit for the confirmed target and current conditions</p> : null}</div>{plan.recommended ? <Badge variant="ai"><Sparkles aria-hidden="true" />TUNAS recommendation</Badge> : null}{selectedPlan?.planId === plan.planId ? <CheckCircle2 className={`h-5 w-5 ${plan.recommended ? "text-ai-700" : "text-forest-700"}`} aria-label="Selected" /> : null}</div><p className="text-sm leading-6 text-muted-foreground">{plan.summary}</p><div className="grid gap-3 border-t pt-3 sm:grid-cols-2"><div><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Drying estimate</p><p className="mt-1 font-semibold">{plan.dryingEstimateDays} days</p><p className="mt-1 text-sm leading-5 text-muted-foreground">{plan.dryingEstimateReason}</p></div><div><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Risks</p><ul className="mt-1 grid gap-1 text-sm leading-5 text-muted-foreground">{Object.values(plan.risks).map((risk) => <li key={risk}>{risk}</li>)}</ul></div></div></button>)}</div>{selectedPlan ? <Card variant="highlight"><CardHeader><CardTitle>{selectedPlan.name} schedule</CardTitle><CardDescription>Review the timing and assumptions before you approve.</CardDescription></CardHeader><CardContent className="grid gap-3">{selectedPlan.activities.map((activity) => <div key={`${activity.stage}-${activity.title}`} className="rounded-md border bg-card p-3"><div className="flex flex-wrap items-center justify-between gap-2"><strong>{activity.title}</strong><Badge variant="source">{activity.stage === "HARVESTING" ? "Harvest" : "Drying"}</Badge></div><p className="mt-1 text-sm leading-6 text-muted-foreground">{activity.description}</p><p className="mt-2 text-sm font-semibold">{activity.startsOn === activity.endsOn ? formatDate(activity.startsOn) : `${formatDate(activity.startsOn)}–${formatDate(activity.endsOn)}`}{activity.windowStart && activity.windowEnd ? ` · ${activity.windowStart}–${activity.windowEnd}` : ""}{activity.targetHarvestKg ? ` · ${activity.targetHarvestKg.toLocaleString("en-ID")} kg` : ""}</p></div>)}<div className="rounded-md border border-ai-100 bg-ai-50 p-3 text-sm leading-6 text-ai-700"><strong>Assumptions</strong><ul className="mt-1 list-disc pl-5">{selectedPlan.assumptions.map((assumption) => <li key={assumption}>{assumption}</li>)}</ul></div></CardContent><CardFooter className="justify-end"><Button type="button" size="lg" onClick={onApprove} icon={<FileText aria-hidden="true" />}>Review and approve plan</Button></CardFooter></Card> : null}</section>;
+  return <section className="grid gap-5" aria-labelledby="plan-options-heading"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="plan-options-heading" className="text-2xl font-extrabold tracking-tight">Choose a harvest plan</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Review every candidate and its actual schedule. No mission or schedule is applied before approval.</p></div><Button type="button" variant="outline" onClick={onRevise} icon={<ArrowLeft aria-hidden="true" />}>Revise details</Button></div><MissionCandidateReview
+    plans={plans}
+    recommendation={recommendation}
+    selectedPlan={selectedPlan}
+    onSelect={onSelect}
+    onApprove={onApprove}
+  /></section>;
 }

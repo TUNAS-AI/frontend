@@ -1,6 +1,8 @@
 import { apiFetch } from "../http.ts";
 
 export type WorkingHours = Partial<Record<"monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday", Array<{ start: string; end: string }>>>;
+export type DryingProfile = { method: "FIELD_SUN" | "RACK_SUN" | "COVERED_VENTILATED" | "INSTORE"; capacityKg: number; protectedCapacityKg: number; minDays: number; maxDays: number };
+export type SchedulingDurations = { readinessCheckMinutes: number; harvestMinutes: number; transferToDryingMinutes: number; beginDryingMinutes: number; dryingInspectionMinutes: number };
 
 export type Farm = {
   farmId: string;
@@ -9,7 +11,10 @@ export type Farm = {
   notes: string | null;
   timezone: string;
   defaultWorkerCount: number;
+  rainProtectionAvailable: boolean | null;
   defaultWorkingHours: WorkingHours | null;
+  dryingProfile: DryingProfile | null;
+  schedulingDurations: SchedulingDurations;
   createdAt: string;
   updatedAt: string;
 };
@@ -35,14 +40,15 @@ export type CropBatch = {
   plantingDate: string | null;
   notes: string | null;
   status: string;
+  readinessStatus: "READY" | "NOT_READY" | null;
   createdAt: string;
   updatedAt: string;
 };
 
 export type FarmSnapshot = { farm: Farm; fieldBlocks: FieldBlock[]; cropBatches: CropBatch[] };
-export type FarmUpdate = Pick<Farm, "name" | "location" | "notes" | "timezone" | "defaultWorkerCount" | "defaultWorkingHours">;
+export type FarmUpdate = Pick<Farm, "name" | "location" | "notes" | "timezone" | "defaultWorkerCount" | "rainProtectionAvailable" | "defaultWorkingHours" | "dryingProfile" | "schedulingDurations">;
 export type FieldBlockInput = { name: string; coordinates: FieldBlock["coordinates"]; areaHectares?: number | null; notes?: string | null; status?: string };
-export type CropBatchInput = { fieldBlockId: string; variety?: string | null; plantingDate?: string | null; notes?: string | null; status?: string };
+export type CropBatchInput = { fieldBlockId?: string; variety?: string | null; plantingDate?: string | null; notes?: string | null; status?: string; readinessStatus?: "READY" | "NOT_READY" };
 
 type ApiErrorBody = { error?: string };
 

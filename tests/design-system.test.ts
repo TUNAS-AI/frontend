@@ -4,7 +4,7 @@ import test from "node:test";
 import { actionVariants, statusVariants, surfaceVariants } from "../src/components/ui/semantics.ts";
 
 test("exposes one action and status vocabulary for UI primitives", () => {
-  assert.deepEqual(actionVariants, ["primary", "secondary", "outline", "ghost", "danger", "warning", "link"]);
+  assert.deepEqual(actionVariants, ["primary", "secondary", "outline", "ghost", "danger", "dangerOutline", "warning", "link"]);
   assert.deepEqual(statusVariants, ["neutral", "info", "success", "warning", "danger", "ai", "source"]);
   assert.deepEqual(surfaceVariants, ["default", "subtle", "highlight", "success"]);
 });

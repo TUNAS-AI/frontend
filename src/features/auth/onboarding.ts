@@ -14,6 +14,7 @@ export type CropBatchDraft = {
   variety: string;
   plantingDate: string;
   notes: string;
+  readinessStatus: "" | "READY" | "NOT_READY";
 };
 
 export type FieldDraft = {
@@ -32,6 +33,7 @@ export type FarmDraft = {
   notes: string;
   timezone: string;
   defaultWorkerCount: string;
+  rainProtectionAvailable: "unknown" | "yes" | "no";
   workWindows: WorkWindowDraft[];
 };
 
@@ -42,6 +44,7 @@ export type OnboardingPayload = {
     notes?: string;
     timezone: string;
     defaultWorkerCount: number;
+    rainProtectionAvailable: boolean | null;
     defaultWorkingHours: Partial<Record<Weekday, Array<{ start: string; end: string }>>>;
   };
   fields: Array<{
@@ -49,7 +52,7 @@ export type OnboardingPayload = {
     coordinates: { latitude: number; longitude: number };
     areaHectares?: number;
     notes?: string;
-    cropBatches: Array<{ variety?: string; plantingDate?: string; notes?: string }>;
+    cropBatches: Array<{ variety?: string; plantingDate?: string; notes?: string; readinessStatus: "READY" | "NOT_READY" }>;
   }>;
 };
 
@@ -57,7 +60,7 @@ const id = (prefix: string, index: number) => `${prefix}-${Date.now()}-${index}`
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 export function createCropBatchDraft(index: number): CropBatchDraft {
-  return { id: id("batch", index), variety: "", plantingDate: "", notes: "" };
+  return { id: id("batch", index), variety: "", plantingDate: "", notes: "", readinessStatus: "" };
 }
 
 export function createFieldDraft(index: number): FieldDraft {
@@ -82,9 +85,10 @@ export function createDemoOnboardingDraft(): { farm: FarmDraft; fields: FieldDra
     farm: {
       name: "Tani Makmur Brebes",
       location: "Brebes, Central Java",
-      notes: "Workers: Pak Dedi, Pak Ujang, Bu Sari, and Pak Wawan. Drying method: outdoor drying. Rain protection: tarpaulin available.",
+      notes: "Outdoor drying beside the packing shed.",
       timezone: "Asia/Jakarta",
       defaultWorkerCount: "4",
+      rainProtectionAvailable: "yes",
       workWindows: weekdays.slice(0, 6).map((day) => ({ id: `window-demo-${day}`, day, start: "06:00", end: "16:00" })),
     },
     fields: [
@@ -94,8 +98,8 @@ export function createDemoOnboardingDraft(): { farm: FarmDraft; fields: FieldDra
         latitude: "-6.867120",
         longitude: "109.037109",
         areaHectares: "0.8",
-        notes: "Farmer-reported readiness: READY. Estimated harvestable quantity: 650 kg.",
-        cropBatches: [{ id: "batch-demo-north-block-1", variety: "Bima Brebes", plantingDate: plantingDate(62), notes: "Farmer-reported readiness: READY. Estimated harvestable quantity: 650 kg." }],
+        notes: "Estimated harvestable quantity: 650 kg.",
+        cropBatches: [{ id: "batch-demo-north-block-1", variety: "Bima Brebes", plantingDate: plantingDate(62), readinessStatus: "READY", notes: "Estimated harvestable quantity: 650 kg." }],
       },
     ],
   };
@@ -145,6 +149,7 @@ export function validateFieldDrafts(fields: FieldDraft[]) {
     const areaHectares = field.areaHectares.trim() ? Number(field.areaHectares) : undefined;
     if (areaHectares !== undefined && (!Number.isFinite(areaHectares) || areaHectares <= 0)) throw new Error(`Area for ${fieldName} must be greater than 0.`);
     if (!field.cropBatches.length) throw new Error(`Add at least one crop batch to ${fieldName}.`);
+    if (field.cropBatches.some((batch) => !batch.readinessStatus)) throw new Error(`Set readiness for every crop batch in ${fieldName}.`);
     return { fieldName, latitude, longitude, areaHectares };
   });
 }
@@ -160,6 +165,7 @@ export function buildOnboardingPayload({ farm, fields }: { farm: FarmDraft; fiel
       ...(optional(farm.notes) ? { notes: optional(farm.notes) } : {}),
       timezone: farm.timezone.trim() || "Asia/Jakarta",
       defaultWorkerCount: validatedFarm.defaultWorkerCount,
+      rainProtectionAvailable: farm.rainProtectionAvailable === "unknown" ? null : farm.rainProtectionAvailable === "yes",
       defaultWorkingHours: validatedFarm.defaultWorkingHours,
     },
     fields: fields.map((field, index) => {
@@ -170,6 +176,7 @@ export function buildOnboardingPayload({ farm, fields }: { farm: FarmDraft; fiel
         ...(areaHectares === undefined ? {} : { areaHectares }),
         ...(optional(field.notes) ? { notes: optional(field.notes) } : {}),
         cropBatches: field.cropBatches.map((batch) => ({
+          readinessStatus: batch.readinessStatus as "READY" | "NOT_READY",
           ...(optional(batch.variety) ? { variety: optional(batch.variety) } : {}),
           ...(optional(batch.plantingDate) ? { plantingDate: optional(batch.plantingDate) } : {}),
           ...(optional(batch.notes) ? { notes: optional(batch.notes) } : {}),

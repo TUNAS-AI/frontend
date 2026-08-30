@@ -1,16 +1,13 @@
 import type { MissionPlanPreview, MissionPreviewCandidate } from "@/api/missions";
 
 export type MissionCreationDraft = { candidate: MissionPreviewCandidate | null; planPreview: MissionPlanPreview | null; selectedPlanId: string | null };
-const key = "tunas:mission-creation-draft:v1";
+const key = "tunas:mission-creation-draft:v2";
 
 function storage() { try { return window.sessionStorage; } catch { return null; } }
 
 function restoreCandidate(candidate: MissionPreviewCandidate | null) {
   if (!candidate) return null;
-  const { maturity: _maturity, ...facts } = candidate.facts as MissionPreviewCandidate["facts"] & { maturity?: unknown };
-  const legacyGrade = facts.marketQuality as string | null;
-  const marketQuality = legacyGrade === "A" ? "Grade A" : legacyGrade === "B" ? "Grade B" : legacyGrade === "C" ? "Grade C" : facts.marketQuality;
-  return { ...candidate, facts: { ...facts, marketQuality } };
+  return "readinessStatus" in candidate.facts && "dryingEstimatedMaxDays" in candidate.facts ? candidate : null;
 }
 
 export function restoreMissionCreationDraft(): MissionCreationDraft {
@@ -27,7 +24,7 @@ export function restoreMissionCreationDraft(): MissionCreationDraft {
 export function persistMissionCreationDraft(draft: MissionCreationDraft) { try { storage()?.setItem(key, JSON.stringify(draft)); } catch { /* Draft recovery is best effort. */ } }
 export function clearMissionCreationDraft() { try { storage()?.removeItem(key); } catch { /* Storage can be unavailable. */ } }
 
-function editKey(missionId: string) { return `tunas:mission-edit-draft:v1:${missionId}`; }
+function editKey(missionId: string) { return `tunas:mission-edit-draft:v2:${missionId}`; }
 export function restoreMissionEditDraft(missionId: string): MissionCreationDraft {
   try {
     const value = storage()?.getItem(editKey(missionId));

@@ -9,11 +9,13 @@ test("builds the backend onboarding payload from nested field and batch drafts",
   field.longitude = "107.60981";
   field.cropBatches[0].variety = "Bima Brebes";
   field.cropBatches[0].plantingDate = "2026-05-15";
+  field.cropBatches[0].readinessStatus = "READY";
 
   const payload = buildOnboardingPayload({
     farm: {
       name: "Kebun Cisarua",
       defaultWorkerCount: "3",
+      rainProtectionAvailable: "unknown",
       location: "Bogor",
       notes: "",
       timezone: "Asia/Jakarta",
@@ -25,6 +27,7 @@ test("builds the backend onboarding payload from nested field and batch drafts",
   assert.deepEqual(payload.farm.defaultWorkingHours, { monday: [{ start: "06:00", end: "11:00" }] });
   assert.equal(payload.fields[0].coordinates.latitude, -6.914744);
   assert.equal(payload.fields[0].cropBatches[0].variety, "Bima Brebes");
+  assert.equal(payload.fields[0].cropBatches[0].readinessStatus, "READY");
 });
 
 test("requires a crop batch for every field", () => {
@@ -36,7 +39,7 @@ test("requires a crop batch for every field", () => {
 
   assert.throws(
     () => buildOnboardingPayload({
-      farm: { name: "Kebun Cisarua", defaultWorkerCount: "1", location: "", notes: "", timezone: "Asia/Jakarta", workWindows: [{ day: "monday", start: "06:00", end: "11:00" }] },
+      farm: { name: "Kebun Cisarua", defaultWorkerCount: "1", rainProtectionAvailable: "unknown", location: "", notes: "", timezone: "Asia/Jakarta", workWindows: [{ day: "monday", start: "06:00", end: "11:00" }] },
       fields: [field],
     }),
     /Add at least one crop batch to North Block/,
@@ -51,14 +54,13 @@ test("creates a complete demonstration onboarding draft without submitting it", 
   assert.equal(payload.farm.defaultWorkerCount, 4);
   assert.deepEqual(payload.farm.defaultWorkingHours.monday, [{ start: "06:00", end: "16:00" }]);
   assert.deepEqual(payload.farm.defaultWorkingHours.saturday, [{ start: "06:00", end: "16:00" }]);
-  assert.match(payload.farm.notes ?? "", /Pak Dedi, Pak Ujang, Bu Sari, and Pak Wawan/);
-  assert.match(payload.farm.notes ?? "", /outdoor drying/);
-  assert.match(payload.farm.notes ?? "", /tarpaulin available/);
+  assert.equal(payload.farm.rainProtectionAvailable, true);
+  assert.match(payload.farm.notes ?? "", /Outdoor drying/);
   assert.equal(payload.fields.length, 1);
   assert.equal(payload.fields[0].name, "Blok Utara");
   assert.deepEqual(payload.fields[0].coordinates, { latitude: -6.86712, longitude: 109.037109 });
   assert.equal(payload.fields[0].cropBatches[0].variety, "Bima Brebes");
-  assert.match(payload.fields[0].cropBatches[0].notes ?? "", /READY/);
+  assert.equal(payload.fields[0].cropBatches[0].readinessStatus, "READY");
   assert.match(payload.fields[0].cropBatches[0].notes ?? "", /650 kg/);
 
   const planted = new Date(`${payload.fields[0].cropBatches[0].plantingDate}T00:00:00`);

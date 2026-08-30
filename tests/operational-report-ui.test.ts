@@ -14,18 +14,19 @@ test("mission detail scopes the assistant, hides generic edit, and retains the r
 test("Farm links Telegram once and mission detail sends a scoped rain demo", async () => {
   const [farm, mission] = await Promise.all([read("../src/features/farm/FarmView.tsx"), read("../src/features/missions/MissionDetailView.tsx")]);
   assert.match(farm, /beginTelegramConnection/);
-  assert.match(farm, /Hubungkan Telegram/);
+  assert.match(farm, /Connect Telegram/);
   assert.match(farm, /href=\{telegram\.botUrl\}/);
   assert.match(farm, /rel="noopener noreferrer"/);
   assert.doesNotMatch(farm, /disconnectTelegram/);
   assert.match(mission, /createTunasTestAlert\(mission\.missionId/);
-  assert.match(mission, /Kirim demo peringatan hujan/);
+  assert.match(mission, /Simulasikan prakiraan hujan/);
+  assert.match(mission, /disabled=\{mission\.status !== "ACTIVE" \|\| rainDemoBusy\}/);
 });
 
 test("report dialog supports every report type and contract field", async () => {
   const source = await read("../src/features/missions/OperationalReportDialog.tsx");
-  for (const reportType of ["ACTIVITY_STARTED", "ACTIVITY_COMPLETED", "ACTUAL_QUANTITY_REPORTED", "WORKER_AVAILABILITY_CHANGED", "BUYER_REQUIREMENT_CHANGED", "DRYING_RESOURCE_CHANGED", "RAIN_OR_FIELD_EVENT", "MISSION_DEVIATION", "GENERAL_OPERATIONAL_NOTE"]) assert.match(source, new RegExp(reportType));
-  for (const field of ["quantityKg", "availableWorkers", "effectiveAt", "targetQuantityKg", "quantityBasis", "deadline", "protectionAvailable", "description", "observedAt", "narrative", "missionStepId"]) assert.match(source, new RegExp(field));
+  for (const reportType of ["ACTIVITY_STARTED", "ACTIVITY_COMPLETED", "ACTUAL_QUANTITY_REPORTED", "WORKER_AVAILABILITY_CHANGED", "BUYER_REQUIREMENT_CHANGED", "DRYING_RESOURCE_CHANGED", "DRYING_INSPECTION", "RAIN_OR_FIELD_EVENT", "MISSION_DEVIATION", "GENERAL_OPERATIONAL_NOTE"]) assert.match(source, new RegExp(reportType));
+  for (const field of ["quantityKg", "availableWorkers", "effectiveAt", "targetQuantityKg", "quantityBasis", "buyerPickupAt", "protectionAvailable", "description", "observedAt", "narrative", "missionStepId"]) assert.match(source, new RegExp(field));
   assert.match(source, /label="Deadline \(optional\)" type="date"/);
   assert.match(source, /crypto\.randomUUID\(\)/);
   assert.match(source, /approveTunasPendingAction/);

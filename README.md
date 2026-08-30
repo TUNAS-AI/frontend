@@ -109,6 +109,8 @@ Do not use `shadcn@latest` until the project intentionally migrates to Tailwind 
 
 ## API configuration
 
+Mission scheduling v2 previews include exact harvest windows and buyer pickup timestamps, rain-risk priority, partial-fulfillment intent, structured recommendation evidence, and timed activities with `actionKind`. Mission creation shows every candidate timeline and separate rationale sections; no schedule is persisted or synced until explicit approval. Calendar entries honor `scheduleType`, so drying inspections and protection actions remain timed checkpoints rather than inferred all-day drying periods.
+
 Production builds use:
 
 ```text

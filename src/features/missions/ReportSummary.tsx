@@ -2,7 +2,7 @@ import type { OperationalReport, OperationalReportType } from "@/api/tunas";
 
 const labels: Record<OperationalReportType, string> = {
   ACTIVITY_STARTED: "Activity started", ACTIVITY_COMPLETED: "Activity completed", ACTUAL_QUANTITY_REPORTED: "Actual quantity",
-  WORKER_AVAILABILITY_CHANGED: "Worker availability", BUYER_REQUIREMENT_CHANGED: "Buyer requirement", DRYING_RESOURCE_CHANGED: "Drying resource",
+  WORKER_AVAILABILITY_CHANGED: "Worker availability", BUYER_REQUIREMENT_CHANGED: "Buyer requirement", DRYING_RESOURCE_CHANGED: "Drying resource", DRYING_INSPECTION: "Drying inspection",
   RAIN_OR_FIELD_EVENT: "Rain or field event", MISSION_DEVIATION: "Mission deviation", GENERAL_OPERATIONAL_NOTE: "General note",
 };
 
