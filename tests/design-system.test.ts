@@ -44,12 +44,13 @@ test("uses a floating responsive TUNAS panel and typing indicators while context
   assert.match(assistant, /\/images\/tunas-ai-icon-white\.png/);
   assert.doesNotMatch(assistant, /Sparkles/);
   assert.match(assistant, /sm:h-14 sm:w-auto sm:min-h-14 sm:px-6/);
-  assert.match(assistant, /h-\[60dvh\]/);
-  assert.match(assistant, /lg:h-full/);
+  assert.match(assistant, /h-\[min\(36rem,calc\(100dvh-1\.5rem\)\)\]/);
+  assert.match(assistant, /sm:h-\[min\(40rem,calc\(100dvh-2\.5rem\)\)\]/);
   assert.match(assistant, /right-3 z-40/);
   assert.match(assistant, /overflow-x-hidden/);
   assert.match(assistant, /tunas-chat-scroll/);
-  assert.match(assistant, /flex min-h-full min-w-0 flex-col justify-end gap-3/);
+  assert.match(assistant, /flex min-h-full min-w-0 flex-col gap-3/);
+  assert.match(assistant, /className="mt-auto" aria-hidden="true"/);
   assert.ok(assistant.indexOf("{conversation.map") > assistant.indexOf("visibleMessages.map"));
   assert.match(assistant, /<span className="hidden sm:inline">Tunas AI<\/span>/);
   assert.match(assistant, /TunasTypingIndicator/);

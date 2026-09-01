@@ -287,9 +287,9 @@ function GlobalTunasAssistant({ assistantMissionId }: { assistantMissionId?: str
   }
 
   return (
-    <div className={open ? "fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 sm:inset-x-auto sm:bottom-5 sm:right-5 lg:inset-y-5 lg:right-5" : "fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] right-3 z-40 sm:bottom-5 sm:right-5"}>
+    <div className={open ? "fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 sm:inset-x-auto sm:bottom-5 sm:right-5 lg:bottom-6 lg:right-6" : "fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] right-3 z-40 sm:bottom-5 sm:right-5"}>
       {open ? (
-        <section aria-label="Tunas AI" className="tunas-assistant-window motion-enter flex h-[60dvh] min-h-[25rem] w-full max-w-full flex-col overflow-hidden rounded-2xl border border-ai-100 bg-card shadow-lift sm:w-[min(440px,calc(100vw-2.5rem))] lg:h-full lg:min-h-0" onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); }}>
+        <section aria-label="Tunas AI" className="tunas-assistant-window motion-enter flex h-[min(36rem,calc(100dvh-1.5rem))] min-h-[20rem] w-full max-w-full flex-col overflow-hidden rounded-2xl border border-ai-100 bg-card shadow-lift sm:h-[min(40rem,calc(100dvh-2.5rem))] sm:w-[min(440px,calc(100vw-2.5rem))]" onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); }}>
           <header className="tunas-assistant-header relative z-10 flex min-h-16 items-center justify-between gap-3 rounded-t-xl bg-ai-700 py-2 pr-4 text-white">
             <img src={mascot.image} alt={mascot.alt} className="tunas-assistant-mascot pointer-events-none absolute z-20 object-contain object-bottom" />
             <div className="min-w-0">
@@ -300,8 +300,9 @@ function GlobalTunasAssistant({ assistantMissionId }: { assistantMissionId?: str
           </header>
 
           <div ref={scrollRef} className="tunas-chat-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4" aria-live="polite" aria-busy={loading || Boolean(working)}>
-            <div className="flex min-h-full min-w-0 flex-col justify-end gap-3">
-            <p className="sr-only" role="status">{mascot.label}. {mascot.detail}</p>
+            <div className="flex min-h-full min-w-0 flex-col gap-3">
+             <div className="mt-auto" aria-hidden="true" />
+             <p className="sr-only" role="status">{mascot.label}. {mascot.detail}</p>
              {assistantMissionId ? <Badge variant="ai">Current mission context</Badge> : null}
              {loading ? <ChatBubble variant="assistant"><TunasTypingIndicator className="text-ai-700" /></ChatBubble> : null}
              {!loading ? visibleInteractions.map((interaction) => <Interaction key={interaction.operationalInteractionId} interaction={interaction} working={working} onDecide={decide} />) : null}
