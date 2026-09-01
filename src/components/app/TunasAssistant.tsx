@@ -158,7 +158,7 @@ function ContextualTunasAssistant({ contextLabel, contextTone = "ai", starterMes
   return <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] right-3 z-40 sm:bottom-5 sm:right-5 lg:bottom-6 lg:right-6">
     {open ? <section aria-label="Tunas AI" className="motion-enter flex h-[min(430px,calc(100dvh-8rem))] w-[min(390px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border border-ai-100 bg-card shadow-lift">
       <header className="flex items-center justify-between gap-3 bg-ai-700 px-4 py-3 text-white"><div className="min-w-0"><h2 className="font-bold">Tunas AI</h2><p className="truncate text-xs text-white/80">{subtitle}</p></div><Button type="button" size="icon" variant="ghost" className="border-transparent text-white hover:bg-white/15 hover:text-white" aria-label="Close Tunas AI" onClick={() => setOpen(false)}><X aria-hidden="true" /></Button></header>
-      <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4" aria-live="polite"><Badge variant={contextTone}>{contextLabel}</Badge>{messages.map((message) => <ChatBubble key={message.id} variant={message.role}>{message.text}</ChatBubble>)}{working ? <ChatBubble variant="assistant"><TunasTypingIndicator className="text-ai-700" /></ChatBubble> : null}</div>
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-4" aria-live="polite"><div className="flex min-h-full flex-col justify-end gap-3"><Badge variant={contextTone}>{contextLabel}</Badge>{messages.map((message) => <ChatBubble key={message.id} variant={message.role}>{message.text}</ChatBubble>)}{working ? <ChatBubble variant="assistant"><TunasTypingIndicator className="text-ai-700" /></ChatBubble> : null}</div></div>
       <form className="flex gap-2 border-t bg-muted/30 p-3" onSubmit={(event) => void ask(event)}><label className="sr-only" htmlFor={inputId}>Ask Tunas AI</label><Textarea id={inputId} rows={2} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={inputPlaceholder} disabled={working} /><Button type="submit" size="icon" disabled={!draft.trim() || working} aria-label="Send question"><Send aria-hidden="true" /></Button></form>
     </section> : <Button type="button" size="icon" className="h-12 w-12 min-h-12 rounded-full border-ai-700 bg-ai-700 p-0 text-white shadow-lift hover:bg-ai-700/90" aria-label="Open Tunas AI" onClick={() => setOpen(true)}><img src="/images/tunas-ai-icon-white.png" alt="" className="h-6 w-6 object-contain" /></Button>}
   </div>;
@@ -299,12 +299,12 @@ function GlobalTunasAssistant({ assistantMissionId }: { assistantMissionId?: str
             <Button type="button" size="icon" variant="ghost" className="border-transparent text-white hover:bg-white/15 hover:text-white" aria-label="Close Tunas AI" onClick={() => setOpen(false)}><X aria-hidden="true" /></Button>
           </header>
 
-          <div ref={scrollRef} className="tunas-chat-scroll min-h-0 min-w-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto p-4" aria-live="polite" aria-busy={loading || Boolean(working)}>
+          <div ref={scrollRef} className="tunas-chat-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4" aria-live="polite" aria-busy={loading || Boolean(working)}>
+            <div className="flex min-h-full min-w-0 flex-col justify-end gap-3">
             <p className="sr-only" role="status">{mascot.label}. {mascot.detail}</p>
              {assistantMissionId ? <Badge variant="ai">Current mission context</Badge> : null}
              {loading ? <ChatBubble variant="assistant"><TunasTypingIndicator className="text-ai-700" /></ChatBubble> : null}
              {!loading ? visibleInteractions.map((interaction) => <Interaction key={interaction.operationalInteractionId} interaction={interaction} working={working} onDecide={decide} />) : null}
-             {conversation.map((message) => <div key={message.id} className="grid min-w-0 gap-2"><ChatBubble variant={message.role}>{message.text}</ChatBubble>{message.response ? <ResponseActions response={message.response} working={working} onCancel={cancel} onReplan={approveReplan} /> : null}</div>)}
              {!loading && visibleMessages.length ? visibleMessages.map((message) => (
                <div key={message.tunasMessageId} className="grid min-w-0 gap-2">
                 <ChatBubble variant={message.role === "farmer" ? "user" : "assistant"}>{message.content}</ChatBubble>
@@ -318,8 +318,10 @@ function GlobalTunasAssistant({ assistantMissionId }: { assistantMissionId?: str
                 {message.actions.length ? <div className="flex flex-wrap gap-2">{message.actions.map((item) => <Button key={item.id} type="button" size="sm" variant={item.id === "keep" ? "outline" : "primary"} disabled={working !== null} isLoading={working === `${message.tunasMessageId}:${item.id}`} loadingLabel="Saving" onClick={() => void act(message, item)}>{item.label}</Button>)}</div> : null}
               </div>
             )) : null}
+             {conversation.map((message) => <div key={message.id} className="grid min-w-0 gap-2"><ChatBubble variant={message.role}>{message.text}</ChatBubble>{message.response ? <ResponseActions response={message.response} working={working} onCancel={cancel} onReplan={approveReplan} /> : null}</div>)}
              {!loading && !visibleMessages.length && !visibleInteractions.length && !conversation.length ? <div className="rounded-xl border border-dashed border-ai-200 bg-ai-50/60 p-4 text-sm leading-6 text-muted-foreground"><p className="font-bold text-ai-700">What can Tunas do?</p><p className="mt-1">Ask about your farm, report field conditions, check mission status, or request a schedule change.</p></div> : null}
             {error ? <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert">{error}</p> : null}
+            </div>
           </div>
 
           <form className="flex gap-2 rounded-b-2xl border-t bg-muted/30 p-3" onSubmit={(event) => void send(event)}><label className="sr-only" htmlFor={inputId}>Ask Tunas AI for operational help</label><Textarea id={inputId} rows={2} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask, report a change, or request a replan…" disabled={working !== null} /><Button type="submit" size="icon" disabled={!draft.trim() || working !== null} isLoading={working?.startsWith("send:")} loadingLabel="Sending request" aria-label="Send request"><Send aria-hidden="true" /></Button></form>

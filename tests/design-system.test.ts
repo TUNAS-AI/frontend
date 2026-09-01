@@ -49,6 +49,8 @@ test("uses a floating responsive TUNAS panel and typing indicators while context
   assert.match(assistant, /right-3 z-40/);
   assert.match(assistant, /overflow-x-hidden/);
   assert.match(assistant, /tunas-chat-scroll/);
+  assert.match(assistant, /flex min-h-full min-w-0 flex-col justify-end gap-3/);
+  assert.ok(assistant.indexOf("{conversation.map") > assistant.indexOf("visibleMessages.map"));
   assert.match(assistant, /<span className="hidden sm:inline">Tunas AI<\/span>/);
   assert.match(assistant, /TunasTypingIndicator/);
   assert.match(styles, /@keyframes tunas-typing-dot/);
