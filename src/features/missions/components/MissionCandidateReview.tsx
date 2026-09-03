@@ -6,10 +6,34 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 export function MissionCandidateReview({ plans, recommendation, selectedPlan, onSelect, onApprove }: { plans: MissionPreviewPlan[]; recommendation: MissionPlanRecommendation | null; selectedPlan: MissionPreviewPlan | null; onSelect: (planId: string) => void; onApprove: () => void }) {
   const ordered = [...plans].sort((a, b) => Number(b.planId === recommendation?.planId) - Number(a.planId === recommendation?.planId));
-  return <div className="grid gap-4">{ordered.map((plan) => {
-    const recommended = plan.planId === recommendation?.planId;
-    return <Card key={plan.planId} variant={recommended ? "highlight" : "default"}><CardHeader><div className="flex flex-wrap items-center justify-between gap-2"><CardTitle>{plan.name}</CardTitle>{recommended ? <Badge variant="ai"><Sparkles aria-hidden="true" />TUNAS recommendation</Badge> : null}{plan.weatherStatus === "WEATHER_UNVERIFIED" ? <Badge variant="warning">Weather recheck required</Badge> : null}</div><CardDescription>{plan.summary}</CardDescription></CardHeader><CardContent className="grid gap-5"><CandidateTimeline activities={plan.activities} /><TextSection title="Recommendation reasons" values={recommended ? recommendation?.reasons.map((reason) => reason.text) ?? [] : []} /><EvidenceSection evidence={plan.evidence} /><TextSection title="Assumptions" values={plan.assumptions} /><TextSection title="Tradeoffs" values={plan.tradeoffs} /><TextSection title="Risks" values={Object.entries(plan.risks).map(([risk, detail]) => `${risk}: ${detail}`)} /><section><h4 className="font-bold">Drying guidance window</h4><p className="text-sm leading-6 text-muted-foreground">{plan.dryingEstimateMinDays}–{plan.dryingEstimateMaxDays} days. {plan.dryingEstimateReason}</p></section></CardContent><CardFooter className="justify-end"><Button type="button" variant={selectedPlan?.planId === plan.planId ? "primary" : "outline"} onClick={() => onSelect(plan.planId)}>{selectedPlan?.planId === plan.planId ? "Selected" : "Select this plan"}</Button></CardFooter></Card>;
-  })}<Card variant="success"><CardHeader><CardTitle>No schedule is applied before approval</CardTitle><CardDescription>Selecting a candidate only prepares it for explicit approval.</CardDescription></CardHeader><CardFooter className="justify-end"><Button type="button" size="lg" disabled={!selectedPlan} onClick={onApprove} icon={<FileText aria-hidden="true" />}>Review and approve selected plan</Button></CardFooter></Card></div>;
+  const active = selectedPlan ?? ordered[0];
+  const activeIndex = ordered.findIndex((plan) => plan.planId === active?.planId);
+  const recommended = active?.planId === recommendation?.planId;
+
+  function moveTab(index: number, key: string) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(key)) return;
+    const next = key === "Home" ? 0 : key === "End" ? ordered.length - 1 : (index + (key === "ArrowRight" ? 1 : -1) + ordered.length) % ordered.length;
+    onSelect(ordered[next].planId);
+    requestAnimationFrame(() => document.getElementById(`plan-tab-${next}`)?.focus());
+  }
+
+  return <div className="grid gap-4">
+    <div className="grid gap-2">
+      <p className="text-sm leading-6 text-muted-foreground">Choose a tab to select that plan for approval. No schedule is created until you approve it.</p>
+      <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Harvest plan candidates">{ordered.map((plan, index) => {
+        const selected = plan.planId === active?.planId;
+        return <button key={plan.planId} id={`plan-tab-${index}`} type="button" role="tab" aria-selected={selected} aria-controls={`plan-panel-${index}`} tabIndex={selected ? 0 : -1} title={plan.name} onClick={() => onSelect(plan.planId)} onKeyDown={(event) => moveTab(index, event.key)} className={`min-w-44 flex-1 rounded-md border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/30 ${selected ? "border-primary bg-primary text-primary-foreground shadow-sm" : "bg-card hover:border-primary/50 hover:bg-muted/40"}`}>
+          <span className="block truncate font-bold">{plan.name}</span>
+          <span className={`mt-1 block text-xs font-semibold ${selected ? "text-primary-foreground/85" : "text-muted-foreground"}`}>{selected ? "Selected plan" : plan.planId === recommendation?.planId ? "TUNAS recommendation" : `${plan.activities.length} activities`}</span>
+        </button>;
+      })}</div>
+    </div>
+    {active ? <Card id={`plan-panel-${activeIndex}`} role="tabpanel" aria-labelledby={`plan-tab-${activeIndex}`} className="border-primary/50 shadow-farm">
+      <CardHeader><div className="flex min-w-0 flex-wrap items-center gap-2"><CardTitle className="min-w-0 flex-1 truncate" title={active.name}>{active.name}</CardTitle><Badge variant="success">Selected</Badge>{recommended ? <Badge variant="ai"><Sparkles aria-hidden="true" />TUNAS recommendation</Badge> : null}{active.weatherStatus === "WEATHER_UNVERIFIED" ? <Badge variant="warning">Weather recheck required</Badge> : null}</div><CardDescription>{active.summary}</CardDescription><dl className="mt-3 grid grid-cols-2 gap-3 rounded-md bg-muted/35 p-3"><div><dt className="text-xs font-semibold text-muted-foreground">Drying window</dt><dd className="mt-0.5 font-bold">{active.dryingEstimateMinDays}–{active.dryingEstimateMaxDays} days</dd></div><div><dt className="text-xs font-semibold text-muted-foreground">Activities</dt><dd className="mt-0.5 font-bold">{active.activities.length}</dd></div></dl></CardHeader>
+      <CardContent className="grid gap-5"><CandidateTimeline activities={active.activities} /><details className="rounded-md border bg-muted/20 p-4"><summary className="cursor-pointer font-bold focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/30">Planning details and evidence</summary><div className="mt-4 grid gap-5"><TextSection title="Recommendation reasons" values={recommended ? recommendation?.reasons.map((reason) => reason.text) ?? [] : []} /><EvidenceSection evidence={active.evidence} /><TextSection title="Assumptions" values={active.assumptions} /><TextSection title="Tradeoffs" values={active.tradeoffs} /><TextSection title="Risks" values={Object.entries(active.risks).map(([risk, detail]) => `${risk}: ${detail}`)} /><section><h4 className="font-bold">Drying guidance</h4><p className="text-sm leading-6 text-muted-foreground">{active.dryingEstimateReason}</p></section></div></details></CardContent>
+    </Card> : null}
+    <Card variant="success"><CardHeader><CardTitle>No schedule is applied before approval</CardTitle><CardDescription>The selected tab is the plan that will be approved.</CardDescription></CardHeader><CardFooter className="justify-end"><Button type="button" size="lg" disabled={!selectedPlan} onClick={onApprove} icon={<FileText aria-hidden="true" />}>Approve selected plan</Button></CardFooter></Card>
+  </div>;
 }
 
 function CandidateTimeline({ activities }: { activities: MissionPreviewPlan["activities"] }) {

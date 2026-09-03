@@ -34,12 +34,28 @@ test("report dialog supports every report type and contract field", async () => 
   assert.match(source, /action\.type === "OPEN_REPLAN"/);
 });
 
-test("assistant clarification has no approval controls and replan is backend gated", async () => {
+test("assistant keeps clarification safe and supports in-chat replanning", async () => {
   const source = await read("../src/components/app/TunasAssistant.tsx");
   assert.match(source, /!clarification/);
   assert.match(source, /impact\?\.replanSupported/);
   assert.match(source, /action\.type === "OPEN_REPLAN"/);
-  assert.match(source, /sendTunasInteraction\(message, externalMessageId, assistantMissionId\)/);
+  assert.match(source, /sendTunasInteraction\(message, externalMessageId, assistantMissionId, replanContext\)/);
+  assert.match(source, /cancelTunasPendingAction/);
+  assert.match(source, /confirmMissionReplan/);
+  assert.match(source, /Approve replan/);
+  assert.match(source, /overflow-hidden/);
+  assert.match(source, /overflow-x-hidden/);
+});
+
+test("assistant messages render bounded Telegram HTML and Markdown without raw HTML", async () => {
+  const [bubble, formatter] = await Promise.all([read("../src/components/ui/ChatBubble.tsx"), read("../src/components/ui/FormattedMessage.tsx")]);
+  assert.match(bubble, /FormattedMessage/);
+  assert.match(formatter, /safeLink/);
+  assert.match(formatter, /\["http:", "https:"\]/);
+  assert.match(formatter, /<strong/);
+  assert.match(formatter, /<ul/);
+  assert.match(formatter, /<pre/);
+  assert.doesNotMatch(formatter, /dangerouslySetInnerHTML/);
 });
 
 test("operational history uses stable IDs and duplicate-safe section keys", async () => {
@@ -50,4 +66,25 @@ test("operational history uses stable IDs and duplicate-safe section keys", asyn
   assert.match(source, /useCallback\([\s\S]*\[mission\.missionId\]\)/);
   assert.match(source, /historyRequest\.current/);
   assert.match(source, /Promise\.allSettled/);
+});
+
+test("mission detail prioritizes current work and keeps operational history compact", async () => {
+  const source = await read("../src/features/missions/MissionDetailView.tsx");
+  assert.doesNotMatch(source, /lg:grid-cols-\[minmax\(0,2fr\)_minmax\(18rem,1fr\)\]/);
+  assert.match(source, /sm:grid-cols-2 lg:grid-cols-4/);
+  assert.match(source, /<MissionOverview[\s\S]*<RecentReports[\s\S]*<ScheduleCard[\s\S]*<PlanCard/);
+  assert.match(source, /Latest field reports/);
+  assert.match(source, /reports\.slice\(0, 3\)/);
+  assert.match(source, /events\.slice\(page \* 10, page \* 10 \+ 10\)/);
+  assert.match(source, /Page \{page \+ 1\} of \{pageCount\}/);
+  assert.match(source, /setSelectedEvent\(event\)/);
+  assert.match(source, /Additional details/);
+  assert.match(source, /typeof mission\.plannedHarvestKg === "number"/);
+  assert.doesNotMatch(source, /Recent accepted reports/);
+});
+
+test("report summaries use report-specific copy instead of guessing date fields", async () => {
+  const source = await read("../src/features/missions/ReportSummary.tsx");
+  for (const phrase of ["workers available", "Buyer target updated", "Drying inspection marked", '"harvested"']) assert.match(source, new RegExp(phrase));
+  assert.doesNotMatch(source, /key\.toLowerCase\(\)\.includes\("at"\)/);
 });

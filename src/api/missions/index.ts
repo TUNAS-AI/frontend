@@ -78,9 +78,14 @@ export type MissionConstraint = {
 export type MissionListItem = {
   missionId: string;
   fieldBlockId: string | null;
+  fieldBlock: { fieldBlockId: string; name: string } | null;
   status: MissionStatus;
   stage: MissionStage;
   originalMessage: string;
+  plannedHarvestKg: number | null;
+  destination: MissionFacts["destination"];
+  deadlineAt: string | null;
+  approvedPlanName: string | null;
   createdAt: string;
   cropBatches: Array<{ cropBatchId: string; cropBatch: { cropBatchId: string; variety: string | null } }>;
   missionSteps: MissionStep[];
